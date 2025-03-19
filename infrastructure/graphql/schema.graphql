@@ -1,0 +1,429 @@
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+type Query {
+  # Shop queries
+  getShop(id: ID!): Shop
+  getShopBySubdomain(subdomain: String!): Shop
+  listShops(limit: Int, nextToken: String): ShopConnection!
+  
+  # User queries
+  getUser(id: ID!): User
+  listUsers(shopId: ID!, limit: Int, nextToken: String): UserConnection!
+  getCurrentUser: User
+  
+  # Reward queries
+  getReward(shopId: ID!, id: ID!): Reward
+  listRewards(shopId: ID!, limit: Int, nextToken: String): RewardConnection!
+  
+  # StampCard queries
+  getStampCard(shopId: ID!, id: ID!): StampCard
+  listStampCards(shopId: ID!, limit: Int, nextToken: String): StampCardConnection!
+  
+  # UserReward queries
+  getUserReward(userId: ID!, shopId: ID!): UserReward
+  listUserRewards(userId: ID!, limit: Int, nextToken: String): UserRewardConnection!
+  
+  # Menu queries
+  getMenuItem(shopId: ID!, id: ID!): MenuItem
+  listMenuItems(shopId: ID!, category: String, limit: Int, nextToken: String): MenuItemConnection!
+  
+  # Favorite queries
+  getFavorite(userId: ID!, shopId: ID!, itemId: ID!): Favorite
+  listFavorites(userId: ID!, shopId: ID, limit: Int, nextToken: String): FavoriteConnection!
+}
+
+type Mutation {
+  # Shop mutations
+  createShop(input: CreateShopInput!): Shop!
+  updateShop(input: UpdateShopInput!): Shop!
+  deleteShop(id: ID!): Shop!
+  
+  # User mutations
+  createUser(input: CreateUserInput!): User!
+  updateUser(input: UpdateUserInput!): User!
+  deleteUser(id: ID!): User!
+  
+  # Reward mutations
+  createReward(input: CreateRewardInput!): Reward!
+  updateReward(input: UpdateRewardInput!): Reward!
+  deleteReward(shopId: ID!, id: ID!): Reward!
+  
+  # StampCard mutations
+  createStampCard(input: CreateStampCardInput!): StampCard!
+  updateStampCard(input: UpdateStampCardInput!): StampCard!
+  deleteStampCard(shopId: ID!, id: ID!): StampCard!
+  
+  # UserReward mutations
+  createUserReward(input: CreateUserRewardInput!): UserReward!
+  updateUserReward(input: UpdateUserRewardInput!): UserReward!
+  addPoints(userId: ID!, shopId: ID!, points: Int!): UserReward!
+  addStamp(userId: ID!, shopId: ID!, cardId: ID!): UserReward!
+  redeemReward(userId: ID!, shopId: ID!, rewardId: ID!): UserReward!
+  
+  # Menu mutations
+  createMenuItem(input: CreateMenuItemInput!): MenuItem!
+  updateMenuItem(input: UpdateMenuItemInput!): MenuItem!
+  deleteMenuItem(shopId: ID!, id: ID!): MenuItem!
+  
+  # Favorite mutations
+  addFavorite(userId: ID!, shopId: ID!, itemId: ID!): Favorite!
+  removeFavorite(userId: ID!, shopId: ID!, itemId: ID!): Favorite!
+}
+
+# Shop type and inputs
+type Shop {
+  id: ID!
+  name: String!
+  description: String
+  logo: String
+  subdomain: String!
+  ownerId: ID!
+  address: String
+  city: String
+  state: String
+  zipCode: String
+  country: String
+  phone: String
+  email: String
+  website: String
+  socialMedia: SocialMedia
+  businessHours: [BusinessHour]
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+type SocialMedia {
+  facebook: String
+  instagram: String
+  twitter: String
+}
+
+type BusinessHour {
+  day: String!
+  openTime: String!
+  closeTime: String!
+  isClosed: Boolean
+}
+
+input CreateShopInput {
+  name: String!
+  description: String
+  logo: String
+  subdomain: String!
+  ownerId: ID!
+  address: String
+  city: String
+  state: String
+  zipCode: String
+  country: String
+  phone: String
+  email: String
+  website: String
+  socialMedia: SocialMediaInput
+  businessHours: [BusinessHourInput]
+}
+
+input UpdateShopInput {
+  id: ID!
+  name: String
+  description: String
+  logo: String
+  address: String
+  city: String
+  state: String
+  zipCode: String
+  country: String
+  phone: String
+  email: String
+  website: String
+  socialMedia: SocialMediaInput
+  businessHours: [BusinessHourInput]
+}
+
+input SocialMediaInput {
+  facebook: String
+  instagram: String
+  twitter: String
+}
+
+input BusinessHourInput {
+  day: String!
+  openTime: String!
+  closeTime: String!
+  isClosed: Boolean
+}
+
+type ShopConnection {
+  items: [Shop]!
+  nextToken: String
+}
+
+# User type and inputs
+type User {
+  id: ID!
+  email: String!
+  firstName: String!
+  lastName: String!
+  role: UserRole!
+  shopId: ID
+  phone: String
+  address: String
+  city: String
+  state: String
+  zipCode: String
+  country: String
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+enum UserRole {
+  CUSTOMER
+  SHOP_ADMIN
+  SUPER_ADMIN
+}
+
+input CreateUserInput {
+  email: String!
+  firstName: String!
+  lastName: String!
+  role: UserRole!
+  shopId: ID
+  phone: String
+  address: String
+  city: String
+  state: String
+  zipCode: String
+  country: String
+}
+
+input UpdateUserInput {
+  id: ID!
+  email: String
+  firstName: String
+  lastName: String
+  role: UserRole
+  shopId: ID
+  phone: String
+  address: String
+  city: String
+  state: String
+  zipCode: String
+  country: String
+}
+
+type UserConnection {
+  items: [User]!
+  nextToken: String
+}
+
+# Reward type and inputs
+type Reward {
+  id: ID!
+  shopId: ID!
+  name: String!
+  description: String!
+  pointsRequired: Int!
+  image: String
+  expiryDays: Int
+  isActive: Boolean!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+input CreateRewardInput {
+  shopId: ID!
+  name: String!
+  description: String!
+  pointsRequired: Int!
+  image: String
+  expiryDays: Int
+  isActive: Boolean!
+}
+
+input UpdateRewardInput {
+  id: ID!
+  shopId: ID!
+  name: String
+  description: String
+  pointsRequired: Int
+  image: String
+  expiryDays: Int
+  isActive: Boolean
+}
+
+type RewardConnection {
+  items: [Reward]!
+  nextToken: String
+}
+
+# StampCard type and inputs
+type StampCard {
+  id: ID!
+  shopId: ID!
+  name: String!
+  description: String!
+  stampsRequired: Int!
+  reward: String!
+  image: String
+  expiryDays: Int
+  isActive: Boolean!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+input CreateStampCardInput {
+  shopId: ID!
+  name: String!
+  description: String!
+  stampsRequired: Int!
+  reward: String!
+  image: String
+  expiryDays: Int
+  isActive: Boolean!
+}
+
+input UpdateStampCardInput {
+  id: ID!
+  shopId: ID!
+  name: String
+  description: String
+  stampsRequired: Int
+  reward: String
+  image: String
+  expiryDays: Int
+  isActive: Boolean
+}
+
+type StampCardConnection {
+  items: [StampCard]!
+  nextToken: String
+}
+
+# UserReward type and inputs
+type UserReward {
+  userId: ID!
+  shopId: ID!
+  points: Int!
+  stamps: [StampProgress]
+  rewardHistory: [RewardHistory]
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+type StampProgress {
+  cardId: ID!
+  currentStamps: Int!
+  lastStampDate: AWSDateTime
+}
+
+type RewardHistory {
+  rewardId: ID!
+  rewardName: String!
+  redeemedAt: AWSDateTime!
+}
+
+input CreateUserRewardInput {
+  userId: ID!
+  shopId: ID!
+  points: Int!
+  stamps: [StampProgressInput]
+}
+
+input UpdateUserRewardInput {
+  userId: ID!
+  shopId: ID!
+  points: Int
+  stamps: [StampProgressInput]
+}
+
+input StampProgressInput {
+  cardId: ID!
+  currentStamps: Int!
+  lastStampDate: AWSDateTime
+}
+
+type UserRewardConnection {
+  items: [UserReward]!
+  nextToken: String
+}
+
+# MenuItem type and inputs
+type MenuItem {
+  id: ID!
+  shopId: ID!
+  name: String!
+  description: String
+  price: Float!
+  category: String!
+  image: String
+  isAvailable: Boolean!
+  allergens: [String]
+  nutritionalInfo: NutritionalInfo
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+}
+
+type NutritionalInfo {
+  calories: Int
+  fat: Float
+  carbs: Float
+  protein: Float
+  ingredients: [String]
+}
+
+input CreateMenuItemInput {
+  shopId: ID!
+  name: String!
+  description: String
+  price: Float!
+  category: String!
+  image: String
+  isAvailable: Boolean!
+  allergens: [String]
+  nutritionalInfo: NutritionalInfoInput
+}
+
+input UpdateMenuItemInput {
+  id: ID!
+  shopId: ID!
+  name: String
+  description: String
+  price: Float
+  category: String
+  image: String
+  isAvailable: Boolean
+  allergens: [String]
+  nutritionalInfo: NutritionalInfoInput
+}
+
+input NutritionalInfoInput {
+  calories: Int
+  fat: Float
+  carbs: Float
+  protein: Float
+  ingredients: [String]
+}
+
+type MenuItemConnection {
+  items: [MenuItem]!
+  nextToken: String
+}
+
+# Favorite type
+type Favorite {
+  userId: ID!
+  shopId: ID!
+  itemId: ID!
+  createdAt: AWSDateTime!
+}
+
+type FavoriteConnection {
+  items: [Favorite]!
+  nextToken: String
+}
+
+# AWS Scalar Types
+scalar AWSDateTime

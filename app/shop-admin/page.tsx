@@ -1,476 +1,364 @@
-import Link from "next/link"
-import { CoffeeIcon, Download, PlusIcon, Settings, Store, User, Users } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ModeToggle } from "@/components/mode-toggle"
+'use client';
 
-export default function ShopAdminDashboard() {
-  // Mock shop data for admin
-  const shopData = {
-    name: "Urban Beans",
-    address: "123 Main St, Cityville",
-    image: "/placeholder.svg?height=400&width=600",
-    stats: {
-      totalCustomers: 287,
-      activeStampCards: 156,
-      redeemedRewards: 78,
-      visitorsThisWeek: 43,
-    },
-    recentActivity: [
-      {
-        type: "check-in",
-        user: {
-          name: "Alex Johnson",
-          image: "/placeholder.svg?height=100&width=100",
-        },
-        time: "10 minutes ago",
-        action: "Earned a stamp",
-      },
-      {
-        type: "reward",
-        user: {
-          name: "Jessica Miller",
-          image: "/placeholder.svg?height=100&width=100",
-        },
-        time: "2 hours ago",
-        action: "Redeemed free coffee",
-      },
-      {
-        type: "check-in",
-        user: {
-          name: "Carlos Rodriguez",
-          image: "/placeholder.svg?height=100&width=100",
-        },
-        time: "3 hours ago",
-        action: "Earned a stamp",
-      },
-      {
-        type: "signup",
-        user: {
-          name: "Emma Thompson",
-          image: "/placeholder.svg?height=100&width=100",
-        },
-        time: "Yesterday",
-        action: "Joined loyalty program",
-      },
-      {
-        type: "reward",
-        user: {
-          name: "David Chen",
-          image: "/placeholder.svg?height=100&width=100",
-        },
-        time: "Yesterday",
-        action: "Redeemed 50% off pastry",
-      },
-    ],
-    topCustomers: [
-      {
-        name: "Michelle Park",
-        visits: 27,
-        spent: "$312.50",
-        image: "/placeholder.svg?height=100&width=100",
-      },
-      {
-        name: "James Wilson",
-        visits: 23,
-        spent: "$278.30",
-        image: "/placeholder.svg?height=100&width=100",
-      },
-      {
-        name: "Sophia Garcia",
-        visits: 19,
-        spent: "$215.75",
-        image: "/placeholder.svg?height=100&width=100",
-      },
-    ],
-    popularItems: [
-      { name: "Cold Brew", orders: 129, revenue: "$516.00" },
-      { name: "Cappuccino", orders: 97, revenue: "$427.80" },
-      { name: "Blueberry Muffin", orders: 84, revenue: "$294.00" },
-      { name: "Latte", orders: 76, revenue: "$304.00" },
-      { name: "Croissant", orders: 72, revenue: "$270.00" },
-    ],
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Coffee, Users, Award, Ticket, Menu, Settings, LogOut, BarChart3, DollarSign } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { auth, AuthUser } from '@/lib/auth';
+
+export default function ShopAdminPage() {
+  const router = useRouter();
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const currentUser = await auth.getCurrentUser();
+        if (!currentUser) {
+          router.push('/login');
+          return;
+        }
+        
+        // Check if user is a shop admin
+        if (currentUser.role !== 'SHOP_ADMIN') {
+          router.push('/dashboard');
+          return;
+        }
+        
+        setUser(currentUser);
+      } catch (error) {
+        console.error('Authentication error:', error);
+        router.push('/login');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [router]);
+
+  const handleSignOut = async () => {
+    await auth.signOut();
+    router.push('/');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
   }
 
   return (
-    <div className="flex min-h-screen">
-      <div className="hidden lg:block w-64 border-r p-4">
-        <div className="flex items-center gap-2 font-bold mb-6">
-          <CoffeeIcon className="h-6 w-6" />
-          <span>BrewRewards</span>
-        </div>
-
-        <div className="space-y-1 mb-6">
-          <Link href="/shop-admin">
-            <Button variant="ghost" className="w-full justify-start gap-2">
-              <Store className="h-4 w-4" />
+    <div className="min-h-screen bg-background">
+      <div className="flex">
+        {/* Sidebar */}
+        <div className="hidden md:flex flex-col w-64 border-r h-screen">
+          <div className="p-4 border-b">
+            <div className="flex items-center gap-2">
+              <Coffee className="h-6 w-6" />
+              <span className="font-bold">Shop Admin</span>
+            </div>
+          </div>
+          <nav className="flex-1 p-4 space-y-2">
+            <Button variant="ghost" className="w-full justify-start">
+              <BarChart3 className="mr-2 h-4 w-4" />
               Dashboard
             </Button>
-          </Link>
-          <Link href="/shop-admin/menu">
-            <Button variant="ghost" className="w-full justify-start gap-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
-              >
-                <rect width="14" height="20" x="5" y="2" rx="2" ry="2"></rect>
-                <path d="M8 6h8"></path>
-                <path d="M8 10h8"></path>
-                <path d="M8 14h8"></path>
-                <path d="M8 18h8"></path>
-              </svg>
-              Menu Management
-            </Button>
-          </Link>
-          <Link href="/shop-admin/loyalty">
-            <Button variant="ghost" className="w-full justify-start gap-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
-              >
-                <path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"></path>
-                <path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"></path>
-                <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"></path>
-              </svg>
-              Loyalty Program
-            </Button>
-          </Link>
-          <Link href="/shop-admin/customers">
-            <Button variant="ghost" className="w-full justify-start gap-2">
-              <Users className="h-4 w-4" />
+            <Button variant="ghost" className="w-full justify-start">
+              <Users className="mr-2 h-4 w-4" />
               Customers
             </Button>
-          </Link>
-          <Link href="/shop-admin/reports">
-            <Button variant="ghost" className="w-full justify-start gap-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
-              >
-                <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
-                <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
-              </svg>
-              Reports
+            <Button variant="ghost" className="w-full justify-start">
+              <Award className="mr-2 h-4 w-4" />
+              Rewards
             </Button>
-          </Link>
-          <Link href="/shop-admin/settings">
-            <Button variant="ghost" className="w-full justify-start gap-2">
-              <Settings className="h-4 w-4" />
+            <Button variant="ghost" className="w-full justify-start">
+              <Ticket className="mr-2 h-4 w-4" />
+              Stamp Cards
+            </Button>
+            <Button variant="ghost" className="w-full justify-start">
+              <Menu className="mr-2 h-4 w-4" />
+              Menu
+            </Button>
+            <Button variant="ghost" className="w-full justify-start">
+              <Settings className="mr-2 h-4 w-4" />
               Settings
             </Button>
-          </Link>
-        </div>
-
-        <div className="pt-4 border-t">
-          <div className="flex items-center gap-2 mb-2">
-            <Avatar>
-              <AvatarImage src="/placeholder.svg?height=32&width=32" alt="Shop Owner" />
-              <AvatarFallback>UB</AvatarFallback>
-            </Avatar>
-            <div>
-              <div className="font-medium text-sm">Jason Miller</div>
-              <div className="text-xs text-muted-foreground">Shop Owner</div>
-            </div>
-          </div>
-          <Button variant="outline" size="sm" className="w-full">
-            Sign Out
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex-1">
-        <header className="px-4 lg:px-6 h-16 flex items-center border-b">
-          <Button variant="outline" size="icon" className="lg:hidden">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5"
-            >
-              <rect width="18" height="18" x="3" y="3" rx="2"></rect>
-              <path d="M9 3v18"></path>
-            </svg>
-          </Button>
-          <h1 className="ml-2 lg:ml-0 text-lg font-bold">{shopData.name} Dashboard</h1>
-          <div className="ml-auto flex items-center gap-4">
-            <ModeToggle />
-            <Button variant="outline" size="sm" className="hidden md:flex gap-1">
-              <Download className="h-4 w-4" />
-              Export Data
+          </nav>
+          <div className="p-4 border-t">
+            <Button variant="ghost" className="w-full justify-start" onClick={handleSignOut}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out
             </Button>
-            <Avatar>
-              <AvatarImage src="/placeholder.svg?height=32&width=32" alt="Shop Owner" />
-              <AvatarFallback>UB</AvatarFallback>
-            </Avatar>
           </div>
-        </header>
+        </div>
 
-        <main className="p-4 lg:p-6">
-          <div className="mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {/* Main content */}
+        <div className="flex-1">
+          <header className="border-b">
+            <div className="container px-4 py-4 flex items-center justify-between">
+              <h1 className="text-xl font-bold">Dashboard</h1>
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground">
+                  {user?.firstName} {user?.lastName}
+                </span>
+                <Button variant="ghost" size="icon" className="md:hidden">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
+          </header>
+
+          <main className="container px-4 py-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
-                  <CardDescription>Coffee shop loyalty members</CardDescription>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Total Customers
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold flex items-center gap-2">
-                    {shopData.stats.totalCustomers}
-                    <span className="text-xs font-normal text-green-600">+12%</span>
-                  </div>
+                  <div className="text-3xl font-bold">1,248</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    <span className="text-green-500">+12%</span> from last month
+                  </p>
                 </CardContent>
               </Card>
+              
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Active Stamp Cards</CardTitle>
-                  <CardDescription>Customers earning rewards</CardDescription>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Points Redeemed
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold flex items-center gap-2">
-                    {shopData.stats.activeStampCards}
-                    <span className="text-xs font-normal text-green-600">+5%</span>
-                  </div>
+                  <div className="text-3xl font-bold">5,320</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    <span className="text-green-500">+8%</span> from last month
+                  </p>
                 </CardContent>
               </Card>
+              
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Redeemed Rewards</CardTitle>
-                  <CardDescription>Total rewards claimed</CardDescription>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Revenue Impact
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold flex items-center gap-2">
-                    {shopData.stats.redeemedRewards}
-                    <span className="text-xs font-normal text-amber-600">+2%</span>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Weekly Visitors</CardTitle>
-                  <CardDescription>Customers this week</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold flex items-center gap-2">
-                    {shopData.stats.visitorsThisWeek}
-                    <span className="text-xs font-normal text-green-600">+8%</span>
-                  </div>
+                  <div className="text-3xl font-bold">$3,450</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    <span className="text-green-500">+15%</span> from last month
+                  </p>
                 </CardContent>
               </Card>
             </div>
-          </div>
 
-          <Tabs defaultValue="overview" className="mb-6">
-            <TabsList>
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="activity">Recent Activity</TabsTrigger>
-              <TabsTrigger value="customers">Top Customers</TabsTrigger>
-              <TabsTrigger value="items">Popular Items</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="overview" className="pt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Tabs defaultValue="overview" className="mb-8">
+              <TabsList className="grid grid-cols-3 mb-8 w-full md:w-auto">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="rewards">Rewards</TabsTrigger>
+                <TabsTrigger value="customers">Customers</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="overview" className="space-y-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Shop Performance</CardTitle>
-                    <CardDescription>Average visits and rewards over the past 30 days</CardDescription>
+                    <CardTitle>Activity Overview</CardTitle>
+                    <CardDescription>Customer engagement over the past 30 days</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-[200px] flex items-center justify-center bg-gray-50 rounded-md border">
-                      <p className="text-sm text-muted-foreground">Performance Chart</p>
+                    <div className="h-80 flex items-center justify-center border rounded-md">
+                      <p className="text-muted-foreground">Chart visualization would go here</p>
                     </div>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Loyalty Program Summary</CardTitle>
-                    <CardDescription>Stamps issued and rewards redeemed</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[200px] flex items-center justify-center bg-gray-50 rounded-md border">
-                      <p className="text-sm text-muted-foreground">Loyalty Program Chart</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="activity" className="pt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
-                  <CardDescription>Customer activity from the last 24 hours</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {shopData.recentActivity.map((activity, index) => (
-                      <div key={index} className="flex items-center gap-4">
-                        <Avatar>
-                          <AvatarImage src={activity.user.image} alt={activity.user.name} />
-                          <AvatarFallback>{activity.user.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <div className="flex justify-between">
-                            <p className="font-medium">{activity.user.name}</p>
-                            <span className="text-xs text-muted-foreground">{activity.time}</span>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Popular Rewards</CardTitle>
+                      <CardDescription>Most redeemed rewards this month</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {[
+                          { name: 'Free Coffee', redeemed: 124 },
+                          { name: 'Free Pastry', redeemed: 87 },
+                          { name: '10% Off Order', redeemed: 65 },
+                          { name: 'Free Smoothie', redeemed: 42 },
+                        ].map((reward, i) => (
+                          <div key={i} className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <div className="bg-primary/10 p-2 rounded-full">
+                                <Award className="h-4 w-4 text-primary" />
+                              </div>
+                              <span>{reward.name}</span>
+                            </div>
+                            <span className="font-medium">{reward.redeemed}</span>
                           </div>
-                          <p className="text-sm text-muted-foreground">{activity.action}</p>
-                        </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="customers" className="pt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Top Customers</CardTitle>
-                  <CardDescription>Customers with the most visits and purchases</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {shopData.topCustomers.map((customer, index) => (
-                      <div key={index} className="flex items-center gap-4">
-                        <div className="font-medium text-muted-foreground w-6">{index + 1}</div>
-                        <Avatar>
-                          <AvatarImage src={customer.image} alt={customer.name} />
-                          <AvatarFallback>{customer.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <p className="font-medium">{customer.name}</p>
-                          <p className="text-sm text-muted-foreground">{customer.visits} visits</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">{customer.spent}</p>
-                          <p className="text-sm text-muted-foreground">Total spent</p>
-                        </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Recent Activity</CardTitle>
+                      <CardDescription>Latest customer transactions</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {[
+                          { name: 'John D.', action: 'Redeemed Free Coffee', time: '10 minutes ago' },
+                          { name: 'Sarah M.', action: 'Earned 15 points', time: '25 minutes ago' },
+                          { name: 'Robert K.', action: 'Completed stamp card', time: '1 hour ago' },
+                          { name: 'Emily L.', action: 'Redeemed 10% Off', time: '2 hours ago' },
+                        ].map((activity, i) => (
+                          <div key={i} className="flex justify-between items-center">
+                            <div>
+                              <p className="font-medium">{activity.name}</p>
+                              <p className="text-sm text-muted-foreground">{activity.action}</p>
+                            </div>
+                            <span className="text-sm text-muted-foreground">{activity.time}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="items" className="pt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Popular Items</CardTitle>
-                  <CardDescription>Most ordered items in the past 30 days</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {shopData.popularItems.map((item, index) => (
-                      <div key={index} className="flex items-center">
-                        <div className="font-medium text-muted-foreground w-6">{index + 1}</div>
-                        <div className="flex-1 ml-4">
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-sm text-muted-foreground">{item.orders} orders</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">{item.revenue}</p>
-                          <p className="text-sm text-muted-foreground">Revenue</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <CardTitle>Upcoming Features</CardTitle>
-                <CardDescription>New features and improvements</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="bg-amber-50 border border-amber-100 rounded-md p-3">
-                    <h3 className="font-medium text-amber-800 mb-1">Customer Feedback Integration</h3>
-                    <p className="text-sm text-amber-700">
-                      Allow customers to leave feedback after visits and redeeming rewards.
-                    </p>
-                  </div>
-                  <div className="bg-green-50 border border-green-100 rounded-md p-3">
-                    <h3 className="font-medium text-green-800 mb-1">Personalized Promotions</h3>
-                    <p className="text-sm text-green-700">
-                      Send targeted offers based on customer preferences and visit history.
-                    </p>
-                  </div>
-                  <div className="bg-blue-50 border border-blue-100 rounded-md p-3">
-                    <h3 className="font-medium text-blue-800 mb-1">Advanced Analytics Dashboard</h3>
-                    <p className="text-sm text-blue-700">
-                      More detailed insights on customer behavior and loyalty program performance.
-                    </p>
-                  </div>
+                    </CardContent>
+                  </Card>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>Common shop management tasks</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Button className="w-full justify-start text-left" variant="outline">
-                    <PlusIcon className="h-4 w-4 mr-2" />
-                    Add New Menu Item
-                  </Button>
-                  <Button className="w-full justify-start text-left" variant="outline">
-                    <User className="h-4 w-4 mr-2" />
-                    Lookup Customer
-                  </Button>
-                  <Button className="w-full justify-start text-left" variant="outline">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download Reports
-                  </Button>
-                  <Button className="w-full justify-start text-left" variant="outline">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Edit Shop Profile
+              </TabsContent>
+              
+              <TabsContent value="rewards" className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Rewards Management</h2>
+                  <Button>
+                    <Award className="mr-2 h-4 w-4" />
+                    Add New Reward
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </main>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Active Rewards</CardTitle>
+                    <CardDescription>Manage your shop's reward offerings</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {[
+                        { name: 'Free Coffee', points: 50, redeemed: 124, active: true },
+                        { name: 'Free Pastry', points: 75, redeemed: 87, active: true },
+                        { name: '10% Off Order', points: 25, redeemed: 65, active: true },
+                        { name: 'Free Smoothie', points: 100, redeemed: 42, active: true },
+                        { name: 'BOGO Coffee', points: 60, redeemed: 38, active: false },
+                      ].map((reward, i) => (
+                        <div key={i} className="flex justify-between items-center p-4 border rounded-md">
+                          <div>
+                            <p className="font-medium">{reward.name}</p>
+                            <p className="text-sm text-muted-foreground">{reward.points} points required</p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="text-sm text-muted-foreground">{reward.redeemed} redeemed</span>
+                            <div className={`px-2 py-1 rounded-full text-xs ${reward.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                              {reward.active ? 'Active' : 'Inactive'}
+                            </div>
+                            <Button variant="ghost" size="sm">Edit</Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Stamp Cards</CardTitle>
+                    <CardDescription>Manage your shop's stamp card programs</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {[
+                        { name: 'Coffee Stamp Card', stamps: 10, reward: 'Free Coffee', active: true },
+                        { name: 'Smoothie Stamp Card', stamps: 8, reward: 'Free Smoothie', active: true },
+                      ].map((card, i) => (
+                        <div key={i} className="flex justify-between items-center p-4 border rounded-md">
+                          <div>
+                            <p className="font-medium">{card.name}</p>
+                            <p className="text-sm text-muted-foreground">{card.stamps} stamps for {card.reward}</p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className={`px-2 py-1 rounded-full text-xs ${card.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                              {card.active ? 'Active' : 'Inactive'}
+                            </div>
+                            <Button variant="ghost" size="sm">Edit</Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button variant="outline" className="w-full">
+                      <Ticket className="mr-2 h-4 w-4" />
+                      Add New Stamp Card
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="customers" className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Customer Management</h2>
+                  <Button>Export Data</Button>
+                </div>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Customer List</CardTitle>
+                    <CardDescription>View and manage your customers</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {[
+                        { name: 'John Doe', email: 'john@example.com', points: 320, joined: 'Jan 15, 2025' },
+                        { name: 'Sarah Miller', email: 'sarah@example.com', points: 450, joined: 'Feb 3, 2025' },
+                        { name: 'Robert Kim', email: 'robert@example.com', points: 180, joined: 'Feb 28, 2025' },
+                        { name: 'Emily Liu', email: 'emily@example.com', points: 275, joined: 'Mar 10, 2025' },
+                        { name: 'Michael Johnson', email: 'michael@example.com', points: 120, joined: 'Mar 15, 2025' },
+                      ].map((customer, i) => (
+                        <div key={i} className="flex justify-between items-center p-4 border rounded-md">
+                          <div>
+                            <p className="font-medium">{customer.name}</p>
+                            <p className="text-sm text-muted-foreground">{customer.email}</p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-sm">
+                              <span className="font-medium">{customer.points}</span> points
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              Joined {customer.joined}
+                            </div>
+                            <Button variant="ghost" size="sm">View</Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex justify-between">
+                    <Button variant="outline" size="sm" disabled>Previous</Button>
+                    <div className="text-sm text-muted-foreground">Page 1 of 3</div>
+                    <Button variant="outline" size="sm">Next</Button>
+                  </CardFooter>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </main>
+        </div>
       </div>
     </div>
-  )
+  );
 }
-
