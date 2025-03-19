@@ -41,8 +41,17 @@ export default function LoginPage() {
           router.push('/dashboard');
         }
       }
-    } catch (err) {
-      setError('Invalid email or password. Please try again.');
+    } catch (err: any) {
+      // Handle specific Cognito error messages
+      if (err.code === 'UserNotConfirmedException') {
+        setError('Please check your email and confirm your account before signing in.');
+      } else if (err.code === 'NotAuthorizedException') {
+        setError('Incorrect username or password.');
+      } else if (err.code === 'UserNotFoundException') {
+        setError('Account not found. Please check your email or sign up.');
+      } else {
+        setError(err.message || 'An error occurred during sign in. Please try again.');
+      }
       console.error('Login error:', err);
     } finally {
       setIsLoading(false);

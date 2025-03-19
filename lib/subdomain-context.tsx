@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { shopAPI } from './api';
 
 interface Shop {
   id: string;
@@ -9,7 +10,25 @@ interface Shop {
   logo?: string;
   subdomain: string;
   ownerId: string;
-  // Add other shop properties as needed
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  socialMedia?: {
+    facebook?: string;
+    instagram?: string;
+    twitter?: string;
+  };
+  businessHours?: Array<{
+    day: string;
+    openTime: string;
+    closeTime: string;
+    isClosed?: boolean;
+  }>;
 }
 
 interface SubdomainContextType {
@@ -44,15 +63,15 @@ export const SubdomainProvider = ({ children, subdomain }: SubdomainProviderProp
       }
 
       try {
-        // In a real implementation, this would be a GraphQL query to AppSync
-        // For now, we'll simulate the API call
         setIsLoading(true);
         
-        // TODO: Replace with actual API call to fetch shop by subdomain
-        // Example: const { data } = await API.graphql(graphqlOperation(getShopBySubdomain, { subdomain }));
+        // Fetch shop data from API
+        const shopData = await shopAPI.getShopBySubdomain(subdomain);
         
-        // Mock data for development
-        setTimeout(() => {
+        if (shopData) {
+          setShop(shopData);
+        } else {
+          // If API call returns null, use mock data for development
           if (subdomain === 'demo') {
             setShop({
               id: 'demo-shop-id',
@@ -63,13 +82,13 @@ export const SubdomainProvider = ({ children, subdomain }: SubdomainProviderProp
               ownerId: 'demo-owner-id',
             });
           } else {
-            // Simulate shop not found
+            // Shop not found
             setError(new Error(`Shop with subdomain "${subdomain}" not found`));
           }
-          setIsLoading(false);
-        }, 500);
+        }
       } catch (err) {
         setError(err instanceof Error ? err : new Error('Failed to fetch shop data'));
+      } finally {
         setIsLoading(false);
       }
     };
