@@ -10,13 +10,4 @@ export const awsConfig = {
   // AppSync
   graphqlEndpoint: process.env.NEXT_PUBLIC_GRAPHQL_API_URL || '',
   graphqlApiId: process.env.NEXT_PUBLIC_GRAPHQL_API_ID || '',
-  
-  // Authentication
-  oauth: {
-    domain: `brewrewards-auth.auth.${process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-1'}.amazoncognito.com`,
-    scope: ['email', 'openid', 'profile'],
-    redirectSignIn: typeof window !== 'undefined' ? `${window.location.origin}/api/auth/callback/cognito` : '',
-    redirectSignOut: typeof window !== 'undefined' ? window.location.origin : '',
-    responseType: 'code',
-  },
 };

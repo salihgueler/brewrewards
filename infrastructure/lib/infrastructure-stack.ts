@@ -145,27 +145,7 @@ export class BrewRewardsStack extends cdk.Stack {
         userPassword: true,
         userSrp: true,
       },
-      oAuth: {
-        flows: {
-          authorizationCodeGrant: true,
-          implicitCodeGrant: true,
-        },
-        scopes: [
-          cognito.OAuthScope.EMAIL,
-          cognito.OAuthScope.OPENID,
-          cognito.OAuthScope.PROFILE,
-        ],
-        callbackUrls: [
-          'http://localhost:3000/api/auth/callback/cognito',
-          'https://brewrewards.com/api/auth/callback/cognito',
-          'https://*.brewrewards.com/api/auth/callback/cognito',
-        ],
-        logoutUrls: [
-          'http://localhost:3000',
-          'https://brewrewards.com',
-          'https://*.brewrewards.com',
-        ],
-      },
+      generateSecret: false,
     });
 
     // AppSync GraphQL API
