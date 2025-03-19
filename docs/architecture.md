@@ -156,6 +156,30 @@ The central API gateway that handles all data operations:
 4. AppSync resolves any related data (menu items, rewards)
 5. Client receives the complete shop data
 
+## Error Handling
+
+The application implements comprehensive error handling for all cloud interactions:
+
+1. **Authentication Errors**:
+   - Clear error messages when Cognito is not configured
+   - Proper handling of authentication failures
+   - User-friendly error messages for login/signup issues
+
+2. **API Errors**:
+   - GraphQL error handling with descriptive messages
+   - Network error detection and retry mechanisms
+   - Toast notifications for user feedback
+
+3. **S3 Upload Errors**:
+   - Validation of file types and sizes before upload
+   - Error handling for failed uploads
+   - Proper cleanup of failed uploads
+
+4. **Data Validation**:
+   - Input validation before sending to API
+   - Schema validation for received data
+   - Fallback UI states for missing data
+
 ## Security Considerations
 
 - All API requests are authenticated
@@ -170,6 +194,20 @@ The central API gateway that handles all data operations:
 - S3 provides virtually unlimited storage for images
 - AppSync automatically scales to handle API requests
 - Serverless architecture eliminates infrastructure management
+
+## Development Environment
+
+For local development, the application requires:
+
+1. **AWS Configuration**:
+   - Valid AWS credentials with appropriate permissions
+   - Environment variables for service endpoints and IDs
+   - No mock data or fallbacks - real AWS services are required
+
+2. **Error Handling**:
+   - Descriptive error messages when services are not configured
+   - Clear instructions for setting up required services
+   - Graceful degradation when services are unavailable
 
 ## Future Enhancements
 

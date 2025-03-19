@@ -112,7 +112,7 @@ BrewRewards uses a serverless architecture built on AWS services. The frontend i
    ```bash
    cp .env.example .env.local
    ```
-   Edit `.env.local` with your configuration values.
+   Edit `.env.local` with your AWS configuration values.
 
 4. Deploy the AWS infrastructure:
    ```bash
@@ -121,13 +121,25 @@ BrewRewards uses a serverless architecture built on AWS services. The frontend i
    npm run cdk deploy
    ```
 
-5. Run the development server:
+5. Update the AWS configuration:
+   After deploying the infrastructure, update the `.env.local` file with the outputs from the CDK deployment:
+   ```
+   NEXT_PUBLIC_AWS_REGION=us-east-1
+   NEXT_PUBLIC_USER_POOL_ID=<your-user-pool-id>
+   NEXT_PUBLIC_USER_POOL_CLIENT_ID=<your-user-pool-client-id>
+   NEXT_PUBLIC_GRAPHQL_API_URL=<your-graphql-api-url>
+   NEXT_PUBLIC_GRAPHQL_API_ID=<your-graphql-api-id>
+   NEXT_PUBLIC_IMAGES_BUCKET_NAME=<your-images-bucket-name>
+   NEXT_PUBLIC_IMAGES_BUCKET_DOMAIN_NAME=<your-images-bucket-domain-name>
+   ```
+
+6. Run the development server:
    ```bash
    cd ..
    npm run dev
    ```
 
-6. Open [http://localhost:3000](http://localhost:3000) in your browser.
+7. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Project Structure
 
@@ -214,10 +226,23 @@ The GraphQL API provides the following main operations:
 
 ### Local Development
 
-Run the development server:
-```bash
-npm run dev
-```
+For local development, you must have valid AWS credentials configured. The application does not use mock data and requires proper AWS services to be set up.
+
+1. Run the development server:
+   ```bash
+   npm run dev
+   ```
+
+2. If you encounter errors related to AWS services, check your AWS configuration in `.env.local` and ensure your AWS credentials are properly set up.
+
+### Error Handling
+
+The application includes comprehensive error handling for AWS service interactions:
+
+- Clear error messages when AWS services are not configured
+- Proper error propagation to the UI
+- Toast notifications for user feedback
+- Fallback UI states for error conditions
 
 ### Testing
 
@@ -242,6 +267,8 @@ Deploy AWS resources:
 cd infrastructure
 npm run cdk deploy
 ```
+
+After deployment, update your environment variables with the outputs from the CDK deployment.
 
 ## Contributing
 
