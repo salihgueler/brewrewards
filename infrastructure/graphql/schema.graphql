@@ -71,6 +71,9 @@ type Mutation {
   # Favorite mutations
   addFavorite(userId: ID!, shopId: ID!, itemId: ID!): Favorite!
   removeFavorite(userId: ID!, shopId: ID!, itemId: ID!): Favorite!
+  
+  # S3 Image Upload
+  generateUploadUrl(shopId: ID!, fileName: String!, contentType: String!): S3PresignedUrl!
 }
 
 # Shop type and inputs
@@ -359,6 +362,7 @@ type MenuItem {
   price: Float!
   category: String!
   image: String
+  imageKey: String
   isAvailable: Boolean!
   allergens: [String]
   nutritionalInfo: NutritionalInfo
@@ -381,6 +385,7 @@ input CreateMenuItemInput {
   price: Float!
   category: String!
   image: String
+  imageKey: String
   isAvailable: Boolean!
   allergens: [String]
   nutritionalInfo: NutritionalInfoInput
@@ -394,6 +399,7 @@ input UpdateMenuItemInput {
   price: Float
   category: String
   image: String
+  imageKey: String
   isAvailable: Boolean
   allergens: [String]
   nutritionalInfo: NutritionalInfoInput
@@ -423,6 +429,12 @@ type Favorite {
 type FavoriteConnection {
   items: [Favorite]!
   nextToken: String
+}
+
+# S3 Presigned URL type
+type S3PresignedUrl {
+  uploadUrl: String!
+  key: String!
 }
 
 # AWS Scalar Types

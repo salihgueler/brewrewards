@@ -10,4 +10,8 @@ export const awsConfig = {
   // AppSync
   graphqlEndpoint: process.env.NEXT_PUBLIC_GRAPHQL_API_URL || '',
   graphqlApiId: process.env.NEXT_PUBLIC_GRAPHQL_API_ID || '',
+  
+  // S3
+  imagesBucketName: process.env.NEXT_PUBLIC_IMAGES_BUCKET_NAME || '',
+  imagesBucketDomainName: process.env.NEXT_PUBLIC_IMAGES_BUCKET_DOMAIN_NAME || '',
 };

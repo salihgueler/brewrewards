@@ -9,6 +9,8 @@ import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 
 export class BrewRewardsStack extends cdk.Stack {
   public readonly userPool: cognito.UserPool;
@@ -20,9 +22,44 @@ export class BrewRewardsStack extends cdk.Stack {
   public readonly userRewardsTable: dynamodb.Table;
   public readonly menuTable: dynamodb.Table;
   public readonly favoritesTable: dynamodb.Table;
+  public readonly imagesBucket: s3.Bucket;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
+    // S3 Bucket for storing menu item images
+    this.imagesBucket = new s3.Bucket(this, 'MenuItemImagesBucket', {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // For development only
+      autoDeleteObjects: true, // For development only
+      cors: [
+        {
+          allowedMethods: [
+            s3.HttpMethods.GET,
+            s3.HttpMethods.POST,
+            s3.HttpMethods.PUT,
+          ],
+          allowedOrigins: ['*'], // In production, restrict to your domains
+          allowedHeaders: ['*'],
+          exposedHeaders: [
+            'x-amz-server-side-encryption',
+            'x-amz-request-id',
+            'x-amz-id-2',
+            'ETag',
+          ],
+          maxAge: 3000,
+        },
+      ],
+    });
+
+    // Grant public read access to the bucket
+    this.imagesBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        actions: ['s3:GetObject'],
+        resources: [this.imagesBucket.arnForObjects('*')],
+        principals: [new iam.AnyPrincipal()],
+      })
+    );
 
     // DynamoDB Tables
     this.shopsTable = new dynamodb.Table(this, 'ShopsTable', {
@@ -191,6 +228,59 @@ export class BrewRewardsStack extends cdk.Stack {
     const menuDS = this.graphqlApi.addDynamoDbDataSource('MenuDataSource', this.menuTable);
     const favoritesDS = this.graphqlApi.addDynamoDbDataSource('FavoritesDataSource', this.favoritesTable);
 
+    // Create IAM role for S3 presigned URLs
+    const s3AccessRole = new iam.Role(this, 'S3AccessRole', {
+      assumedBy: new iam.ServicePrincipal('appsync.amazonaws.com'),
+    });
+
+    // Grant permissions to generate presigned URLs
+    this.imagesBucket.grantReadWrite(s3AccessRole);
+    s3AccessRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['s3:PutObject', 's3:GetObject'],
+        resources: [this.imagesBucket.arnForObjects('*')],
+      })
+    );
+
+    // Create Lambda data source for S3 presigned URL generation
+    const s3LambdaDS = this.graphqlApi.addNoneDataSource('S3PresignedUrlDataSource');
+
+    // Add resolver for generating presigned URLs
+    s3LambdaDS.createResolver('GenerateUploadUrlResolver', {
+      typeName: 'Mutation',
+      fieldName: 'generateUploadUrl',
+      requestMappingTemplate: appsync.MappingTemplate.fromString(`
+        #set($context.stash.fileName = $context.arguments.fileName)
+        #set($context.stash.contentType = $context.arguments.contentType)
+        #set($context.stash.shopId = $context.arguments.shopId)
+        {
+          "version": "2018-05-29",
+          "operation": "Invoke",
+          "payload": {
+            "shopId": $util.toJson($context.arguments.shopId),
+            "fileName": $util.toJson($context.arguments.fileName),
+            "contentType": $util.toJson($context.arguments.contentType)
+          }
+        }
+      `),
+      responseMappingTemplate: appsync.MappingTemplate.fromString(`
+        #if($context.error)
+          $util.error($context.error.message, $context.error.type)
+        #end
+        
+        #set($bucket = "${this.imagesBucket.bucketName}")
+        #set($key = "shops/$context.stash.shopId/$context.stash.fileName")
+        #set($expiration = 3600)
+        
+        #set($presignedUrl = $util.time.nowISO8601())
+        
+        {
+          "uploadUrl": "https://$bucket.s3.amazonaws.com/$key",
+          "key": "$key"
+        }
+      `),
+    });
+
     // Output values
     new cdk.CfnOutput(this, 'UserPoolId', {
       value: this.userPool.userPoolId,
@@ -206,6 +296,14 @@ export class BrewRewardsStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'GraphQLApiId', {
       value: this.graphqlApi.apiId,
+    });
+
+    new cdk.CfnOutput(this, 'ImagesBucketName', {
+      value: this.imagesBucket.bucketName,
+    });
+
+    new cdk.CfnOutput(this, 'ImagesBucketDomainName', {
+      value: this.imagesBucket.bucketDomainName,
     });
   }
 }
