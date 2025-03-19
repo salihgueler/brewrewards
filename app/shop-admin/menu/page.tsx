@@ -10,6 +10,7 @@ import { MenuItemForm } from '@/components/menu/menu-item-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { graphql } from '@/lib/api';
 import { auth } from '@/lib/auth';
+import { useToast } from '@/components/ui/use-toast';
 
 // GraphQL queries and mutations
 const listMenuItemsQuery = `
@@ -95,6 +96,7 @@ export default function ShopAdminMenuPage() {
   const [shopId, setShopId] = useState<string>('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const { toast } = useToast();
 
   // Fetch the current user and their shop ID
   useEffect(() => {
@@ -105,20 +107,26 @@ export default function ShopAdminMenuPage() {
           setShopId(user.shopId);
           fetchMenuItems(user.shopId);
         } else {
-          // For development, use a mock shop ID
-          setShopId('demo-shop-id');
-          fetchMenuItems('demo-shop-id');
+          toast({
+            title: "Authentication Error",
+            description: "You must be logged in as a shop admin to access this page.",
+            variant: "destructive"
+          });
+          setIsLoading(false);
         }
       } catch (error) {
         console.error('Error fetching current user:', error);
-        // For development, use a mock shop ID
-        setShopId('demo-shop-id');
-        fetchMenuItems('demo-shop-id');
+        toast({
+          title: "Error",
+          description: "Failed to authenticate user. Please try logging in again.",
+          variant: "destructive"
+        });
+        setIsLoading(false);
       }
     };
 
     fetchCurrentUser();
-  }, []);
+  }, [toast]);
 
   // Fetch menu items for the shop
   const fetchMenuItems = async (shopId: string, category?: string) => {
@@ -132,52 +140,16 @@ export default function ShopAdminMenuPage() {
       if (response.listMenuItems?.items) {
         setMenuItems(response.listMenuItems.items);
       } else {
-        // Mock data for development
-        setMenuItems([
-          {
-            id: '1',
-            shopId,
-            name: 'Cappuccino',
-            description: 'A classic Italian coffee drink with equal parts espresso, steamed milk, and milk foam.',
-            price: 4.5,
-            category: 'Coffee',
-            image: '/placeholder-coffee.jpg',
-            isAvailable: true,
-            allergens: ['Milk'],
-            nutritionalInfo: {
-              calories: 120,
-              fat: 4,
-              carbs: 12,
-              protein: 8,
-              ingredients: ['Espresso', 'Milk'],
-            },
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: '2',
-            shopId,
-            name: 'Croissant',
-            description: 'A buttery, flaky pastry of Austrian origin.',
-            price: 3.5,
-            category: 'Pastry',
-            image: '/placeholder-pastry.jpg',
-            isAvailable: true,
-            allergens: ['Gluten', 'Dairy'],
-            nutritionalInfo: {
-              calories: 240,
-              fat: 12,
-              carbs: 26,
-              protein: 5,
-              ingredients: ['Flour', 'Butter', 'Sugar', 'Yeast'],
-            },
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-        ]);
+        setMenuItems([]);
       }
     } catch (error) {
       console.error('Error fetching menu items:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load menu items. Please try again.",
+        variant: "destructive"
+      });
+      setMenuItems([]);
     } finally {
       setIsLoading(false);
     }
@@ -198,10 +170,18 @@ export default function ShopAdminMenuPage() {
         await graphql.mutate(updateMenuItemMutation, {
           input: data,
         });
+        toast({
+          title: "Success",
+          description: "Menu item updated successfully."
+        });
       } else {
         // Create new item
         await graphql.mutate(createMenuItemMutation, {
           input: data,
+        });
+        toast({
+          title: "Success",
+          description: "Menu item created successfully."
         });
       }
       
@@ -211,6 +191,11 @@ export default function ShopAdminMenuPage() {
       setEditingItem(null);
     } catch (error) {
       console.error('Error saving menu item:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save menu item. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -235,8 +220,17 @@ export default function ShopAdminMenuPage() {
       
       // Remove the item from the local state
       setMenuItems(menuItems.filter(item => item.id !== id));
+      toast({
+        title: "Success",
+        description: "Menu item deleted successfully."
+      });
     } catch (error) {
       console.error('Error deleting menu item:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete menu item. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -247,6 +241,24 @@ export default function ShopAdminMenuPage() {
   const filteredItems = activeCategory === 'all'
     ? menuItems
     : menuItems.filter(item => item.category === activeCategory);
+
+  if (!shopId && !isLoading) {
+    return (
+      <div className="container py-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center p-6">
+            <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+            <p className="text-muted-foreground text-center">
+              You need to be logged in as a shop admin to access this page.
+            </p>
+            <Button className="mt-4" asChild>
+              <a href="/login">Log In</a>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container py-6 space-y-6">

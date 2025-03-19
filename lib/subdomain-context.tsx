@@ -71,20 +71,8 @@ export const SubdomainProvider = ({ children, subdomain }: SubdomainProviderProp
         if (shopData) {
           setShop(shopData);
         } else {
-          // If API call returns null, use mock data for development
-          if (subdomain === 'demo') {
-            setShop({
-              id: 'demo-shop-id',
-              name: 'Demo Coffee Shop',
-              description: 'A demo coffee shop for testing',
-              logo: '/demo-logo.png',
-              subdomain: 'demo',
-              ownerId: 'demo-owner-id',
-            });
-          } else {
-            // Shop not found
-            setError(new Error(`Shop with subdomain "${subdomain}" not found`));
-          }
+          // Shop not found
+          setError(new Error(`Shop with subdomain "${subdomain}" not found`));
         }
       } catch (err) {
         setError(err instanceof Error ? err : new Error('Failed to fetch shop data'));

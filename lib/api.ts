@@ -34,13 +34,11 @@ const getAuthToken = async (): Promise<string | null> => {
 // GraphQL API wrapper with authentication
 export const graphql = {
   query: async <T>(query: string, variables?: any): Promise<T> => {
-    try {
-      // For development when API is not configured
-      if (!awsConfig.graphqlEndpoint) {
-        console.warn('GraphQL endpoint not configured, using mock data');
-        return {} as T;
-      }
+    if (!awsConfig.graphqlEndpoint) {
+      throw new Error('GraphQL endpoint not configured. Please set up AWS AppSync endpoint.');
+    }
 
+    try {
       const result = await API.graphql(graphqlOperation(query, variables));
       return result.data as T;
     } catch (error) {
@@ -50,13 +48,11 @@ export const graphql = {
   },
 
   mutate: async <T>(mutation: string, variables?: any): Promise<T> => {
-    try {
-      // For development when API is not configured
-      if (!awsConfig.graphqlEndpoint) {
-        console.warn('GraphQL endpoint not configured, using mock data');
-        return {} as T;
-      }
+    if (!awsConfig.graphqlEndpoint) {
+      throw new Error('GraphQL endpoint not configured. Please set up AWS AppSync endpoint.');
+    }
 
+    try {
       const result = await API.graphql(graphqlOperation(mutation, variables));
       return result.data as T;
     } catch (error) {

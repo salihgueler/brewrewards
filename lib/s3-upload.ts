@@ -48,25 +48,24 @@ export async function uploadImageToS3(file: File, shopId: string): Promise<Uploa
       }
     );
     
-    // If we're in development mode and the API isn't configured, return mock data
     if (!response.generateUploadUrl) {
-      console.warn('S3 upload not configured, using mock data');
-      return {
-        key: `shops/${shopId}/${fileName}`,
-        url: URL.createObjectURL(file), // Create a local object URL for development
-      };
+      throw new Error('Failed to generate upload URL. Check your AWS configuration.');
     }
     
     const { uploadUrl, key } = response.generateUploadUrl;
     
     // Upload the file to S3 using the presigned URL
-    await fetch(uploadUrl, {
+    const uploadResponse = await fetch(uploadUrl, {
       method: 'PUT',
       body: file,
       headers: {
         'Content-Type': file.type,
       },
     });
+    
+    if (!uploadResponse.ok) {
+      throw new Error(`Failed to upload image: ${uploadResponse.statusText}`);
+    }
     
     // Construct the public URL for the uploaded file
     const publicUrl = `https://${awsConfig.imagesBucketDomainName}/${key}`;
@@ -95,9 +94,8 @@ export function getImageUrl(key: string | null | undefined): string {
     return key;
   }
   
-  // If we're in development mode and the bucket domain isn't configured, return a placeholder
   if (!awsConfig.imagesBucketDomainName) {
-    return '/placeholder-image.jpg';
+    throw new Error('S3 bucket domain not configured. Please set up AWS S3 configuration.');
   }
   
   return `https://${awsConfig.imagesBucketDomainName}/${key}`;

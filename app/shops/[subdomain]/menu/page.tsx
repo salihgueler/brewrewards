@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Filter } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { MenuItemCard } from '@/components/menu/menu-item-card';
 import { useSubdomain } from '@/lib/subdomain-context';
 import { graphql } from '@/lib/api';
 import { auth } from '@/lib/auth';
+import { useToast } from '@/components/ui/use-toast';
 
 // GraphQL queries
 const listMenuItemsQuery = `
@@ -87,13 +88,14 @@ interface MenuItem {
 }
 
 export default function ShopMenuPage() {
-  const { shop, isLoading: isShopLoading } = useSubdomain();
+  const { shop, isLoading: isShopLoading, error: shopError } = useSubdomain();
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [favorites, setFavorites] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   // Fetch the current user
   useEffect(() => {
@@ -133,48 +135,16 @@ export default function ShopMenuPage() {
       if (response.listMenuItems?.items) {
         setMenuItems(response.listMenuItems.items);
       } else {
-        // Mock data for development
-        setMenuItems([
-          {
-            id: '1',
-            shopId,
-            name: 'Cappuccino',
-            description: 'A classic Italian coffee drink with equal parts espresso, steamed milk, and milk foam.',
-            price: 4.5,
-            category: 'Coffee',
-            image: '/placeholder-coffee.jpg',
-            isAvailable: true,
-            allergens: ['Milk'],
-            nutritionalInfo: {
-              calories: 120,
-              fat: 4,
-              carbs: 12,
-              protein: 8,
-              ingredients: ['Espresso', 'Milk'],
-            },
-          },
-          {
-            id: '2',
-            shopId,
-            name: 'Croissant',
-            description: 'A buttery, flaky pastry of Austrian origin.',
-            price: 3.5,
-            category: 'Pastry',
-            image: '/placeholder-pastry.jpg',
-            isAvailable: true,
-            allergens: ['Gluten', 'Dairy'],
-            nutritionalInfo: {
-              calories: 240,
-              fat: 12,
-              carbs: 26,
-              protein: 5,
-              ingredients: ['Flour', 'Butter', 'Sugar', 'Yeast'],
-            },
-          },
-        ]);
+        setMenuItems([]);
       }
     } catch (error) {
       console.error('Error fetching menu items:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load menu items. Please try again.",
+        variant: "destructive"
+      });
+      setMenuItems([]);
     } finally {
       setIsLoading(false);
     }
@@ -206,7 +176,14 @@ export default function ShopMenuPage() {
 
   // Handle favorite toggle
   const handleFavoriteToggle = async (itemId: string) => {
-    if (!userId || !shop?.id) return;
+    if (!userId || !shop?.id) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to save favorites.",
+        variant: "default"
+      });
+      return;
+    }
     
     try {
       if (favorites.includes(itemId)) {
@@ -217,6 +194,10 @@ export default function ShopMenuPage() {
           itemId,
         });
         setFavorites(favorites.filter(id => id !== itemId));
+        toast({
+          title: "Removed from favorites",
+          description: "Item removed from your favorites."
+        });
       } else {
         // Add to favorites
         await graphql.mutate(addFavoriteMutation, {
@@ -225,9 +206,18 @@ export default function ShopMenuPage() {
           itemId,
         });
         setFavorites([...favorites, itemId]);
+        toast({
+          title: "Added to favorites",
+          description: "Item added to your favorites."
+        });
       }
     } catch (error) {
       console.error('Error toggling favorite:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update favorites. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -248,6 +238,14 @@ export default function ShopMenuPage() {
     return (
       <div className="container py-12 text-center">
         <p>Loading shop information...</p>
+      </div>
+    );
+  }
+
+  if (shopError) {
+    return (
+      <div className="container py-12 text-center">
+        <p>Error: {shopError.message}</p>
       </div>
     );
   }
@@ -314,7 +312,7 @@ export default function ShopMenuPage() {
                 <MenuItemCard
                   key={item.id}
                   item={item}
-                  onFavorite={userId ? handleFavoriteToggle : undefined}
+                  onFavorite={handleFavoriteToggle}
                   isFavorite={favorites.includes(item.id)}
                 />
               ))}

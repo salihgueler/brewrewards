@@ -43,48 +43,13 @@ const cognitoUserToAuthUser = (
   };
 };
 
-// For development fallback when Cognito is not configured
-let mockUser: AuthUser | null = null;
-
 export const auth = {
   // Sign in with email and password
   signIn: async (email: string, password: string): Promise<AuthUser> => {
-    // If Cognito is not configured, use mock authentication
     if (!awsConfig.userPoolId || !awsConfig.userPoolWebClientId) {
-      console.warn('Cognito not configured, using mock authentication');
-      
-      // Mock successful authentication
-      if (email.includes('admin')) {
-        mockUser = {
-          id: 'admin-user-id',
-          email,
-          firstName: 'Admin',
-          lastName: 'User',
-          role: 'SHOP_ADMIN',
-          shopId: 'demo-shop-id',
-        };
-      } else if (email.includes('super')) {
-        mockUser = {
-          id: 'super-admin-id',
-          email,
-          firstName: 'Super',
-          lastName: 'Admin',
-          role: 'SUPER_ADMIN',
-        };
-      } else {
-        mockUser = {
-          id: 'customer-id',
-          email,
-          firstName: 'Customer',
-          lastName: 'User',
-          role: 'CUSTOMER',
-        };
-      }
-      
-      return mockUser;
+      throw new Error('Cognito is not configured. Please set up AWS Cognito credentials.');
     }
     
-    // Use actual Cognito authentication
     return new Promise((resolve, reject) => {
       const userPool = getUserPool();
       
@@ -124,23 +89,10 @@ export const auth = {
   
   // Sign up a new user
   signUp: async (email: string, password: string, firstName: string, lastName: string): Promise<AuthUser> => {
-    // If Cognito is not configured, use mock registration
     if (!awsConfig.userPoolId || !awsConfig.userPoolWebClientId) {
-      console.warn('Cognito not configured, using mock registration');
-      
-      // Mock successful registration
-      mockUser = {
-        id: 'new-user-id',
-        email,
-        firstName,
-        lastName,
-        role: 'CUSTOMER',
-      };
-      
-      return mockUser;
+      throw new Error('Cognito is not configured. Please set up AWS Cognito credentials.');
     }
     
-    // Use actual Cognito sign-up
     return new Promise((resolve, reject) => {
       const userPool = getUserPool();
       
@@ -177,13 +129,10 @@ export const auth = {
   
   // Confirm registration with verification code
   confirmSignUp: async (email: string, code: string): Promise<boolean> => {
-    // If Cognito is not configured, return mock success
     if (!awsConfig.userPoolId || !awsConfig.userPoolWebClientId) {
-      console.warn('Cognito not configured, using mock confirmation');
-      return true;
+      throw new Error('Cognito is not configured. Please set up AWS Cognito credentials.');
     }
     
-    // Use actual Cognito confirmation
     return new Promise((resolve, reject) => {
       const userPool = getUserPool();
       
@@ -205,14 +154,10 @@ export const auth = {
   
   // Sign out the current user
   signOut: async (): Promise<void> => {
-    // If Cognito is not configured, clear mock user
     if (!awsConfig.userPoolId || !awsConfig.userPoolWebClientId) {
-      console.warn('Cognito not configured, using mock sign out');
-      mockUser = null;
-      return;
+      throw new Error('Cognito is not configured. Please set up AWS Cognito credentials.');
     }
     
-    // Use actual Cognito sign-out
     const userPool = getUserPool();
     const currentUser = userPool.getCurrentUser();
     
@@ -223,13 +168,10 @@ export const auth = {
   
   // Get the current authenticated user
   getCurrentUser: async (): Promise<AuthUser | null> => {
-    // If Cognito is not configured, return mock user
     if (!awsConfig.userPoolId || !awsConfig.userPoolWebClientId) {
-      console.warn('Cognito not configured, using mock current user');
-      return mockUser;
+      throw new Error('Cognito is not configured. Please set up AWS Cognito credentials.');
     }
     
-    // Use actual Cognito getCurrentUser
     return new Promise((resolve) => {
       const userPool = getUserPool();
       const cognitoUser = userPool.getCurrentUser();
@@ -265,19 +207,20 @@ export const auth = {
   
   // Check if a user is authenticated
   isAuthenticated: async (): Promise<boolean> => {
-    const user = await auth.getCurrentUser();
-    return user !== null;
+    try {
+      const user = await auth.getCurrentUser();
+      return user !== null;
+    } catch (error) {
+      return false;
+    }
   },
   
   // Forgot password flow - request code
   forgotPassword: async (email: string): Promise<boolean> => {
-    // If Cognito is not configured, return mock success
     if (!awsConfig.userPoolId || !awsConfig.userPoolWebClientId) {
-      console.warn('Cognito not configured, using mock forgot password');
-      return true;
+      throw new Error('Cognito is not configured. Please set up AWS Cognito credentials.');
     }
     
-    // Use actual Cognito forgot password
     return new Promise((resolve, reject) => {
       const userPool = getUserPool();
       
@@ -299,13 +242,10 @@ export const auth = {
   
   // Forgot password flow - confirm new password with code
   confirmPassword: async (email: string, code: string, newPassword: string): Promise<boolean> => {
-    // If Cognito is not configured, return mock success
     if (!awsConfig.userPoolId || !awsConfig.userPoolWebClientId) {
-      console.warn('Cognito not configured, using mock confirm password');
-      return true;
+      throw new Error('Cognito is not configured. Please set up AWS Cognito credentials.');
     }
     
-    // Use actual Cognito confirm password
     return new Promise((resolve, reject) => {
       const userPool = getUserPool();
       
