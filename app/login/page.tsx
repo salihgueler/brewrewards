@@ -14,6 +14,7 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const shopSubdomain = searchParams.get('shop');
+  const redirectTo = searchParams.get('redirect');
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,7 +29,13 @@ export default function LoginPage() {
     try {
       const user = await auth.signIn(email, password);
       
-      // Redirect based on user role
+      // If there's a redirect parameter, use it
+      if (redirectTo) {
+        router.push(redirectTo);
+        return;
+      }
+      
+      // Otherwise, redirect based on user role
       if (user.role === 'SUPER_ADMIN') {
         router.push('/super-admin');
       } else if (user.role === 'SHOP_ADMIN') {
@@ -44,7 +51,13 @@ export default function LoginPage() {
     } catch (err: any) {
       // Handle specific Cognito error messages
       if (err.code === 'UserNotConfirmedException') {
-        setError('Please check your email and confirm your account before signing in.');
+        // Instead of showing an error, redirect to the confirmation page
+        if (email.includes('super')) {
+          router.push(`/super-admin/confirm?email=${encodeURIComponent(email)}`);
+        } else {
+          router.push(`/confirm?email=${encodeURIComponent(email)}`);
+        }
+        return;
       } else if (err.code === 'NotAuthorizedException') {
         setError('Incorrect username or password.');
       } else if (err.code === 'UserNotFoundException') {
