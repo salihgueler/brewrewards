@@ -15,6 +15,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const shopSubdomain = searchParams.get('shop');
   const redirectTo = searchParams.get('redirect');
+  const userType = searchParams.get('userType'); // 'super-admin' or undefined
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -51,8 +52,8 @@ export default function LoginPage() {
     } catch (err: any) {
       // Handle specific Cognito error messages
       if (err.code === 'UserNotConfirmedException') {
-        // Instead of showing an error, redirect to the confirmation page
-        if (email.includes('super')) {
+        // Determine which confirmation page to use based on the userType parameter
+        if (userType === 'super-admin') {
           router.push(`/super-admin/confirm?email=${encodeURIComponent(email)}`);
         } else {
           router.push(`/confirm?email=${encodeURIComponent(email)}`);
@@ -81,9 +82,13 @@ export default function LoginPage() {
               <span className="font-bold text-xl">BrewRewards</span>
             </Link>
           </div>
-          <CardTitle className="text-2xl text-center">Sign in to your account</CardTitle>
+          <CardTitle className="text-2xl text-center">
+            {userType === 'super-admin' ? 'Super Admin Login' : 'Sign in to your account'}
+          </CardTitle>
           <CardDescription className="text-center">
-            Enter your email and password to access your rewards
+            {userType === 'super-admin' 
+              ? 'Enter your credentials to access the super admin dashboard'
+              : 'Enter your email and password to access your rewards'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -125,24 +130,35 @@ export default function LoginPage() {
           </form>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
-          <div className="text-center text-sm">
-            Don't have an account?{' '}
-            <Link 
-              href={shopSubdomain ? `/register?shop=${shopSubdomain}` : '/register'} 
-              className="text-primary hover:underline"
-            >
-              Sign up
-            </Link>
-          </div>
-          <div className="flex justify-center">
-            <Link 
-              href="/super-admin/register" 
-              className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
-            >
-              <Shield className="h-3 w-3" />
-              Register as Super Admin
-            </Link>
-          </div>
+          {userType === 'super-admin' ? (
+            <div className="text-center text-sm">
+              Don't have a super admin account?{' '}
+              <Link href="/super-admin/register" className="text-primary hover:underline">
+                Register as Super Admin
+              </Link>
+            </div>
+          ) : (
+            <>
+              <div className="text-center text-sm">
+                Don't have an account?{' '}
+                <Link 
+                  href={shopSubdomain ? `/register?shop=${shopSubdomain}` : '/register'} 
+                  className="text-primary hover:underline"
+                >
+                  Sign up
+                </Link>
+              </div>
+              <div className="flex justify-center">
+                <Link 
+                  href="/login?userType=super-admin" 
+                  className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                >
+                  <Shield className="h-3 w-3" />
+                  Super Admin Login
+                </Link>
+              </div>
+            </>
+          )}
           {shopSubdomain && (
             <Button variant="outline" asChild className="w-full">
               <Link href={`/shops/${shopSubdomain}`}>

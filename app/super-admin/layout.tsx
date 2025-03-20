@@ -24,7 +24,7 @@ export default function SuperAdminLayout({
         
         // If no user is logged in and the path is not public, redirect to login
         if (!currentUser && !publicPaths.some(path => pathname.startsWith(path))) {
-          router.push('/login?redirect=/super-admin');
+          router.push('/login?userType=super-admin&redirect=/super-admin');
           return;
         }
         
