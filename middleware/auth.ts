@@ -81,8 +81,34 @@ export async function authMiddleware(
     const headers = new Headers(req.headers);
     headers.set('x-user-id', payload.sub as string);
     headers.set('x-user-role', userRole);
+    
+    // Add shop ID if available
     if (payload['custom:shopId']) {
       headers.set('x-user-shop-id', payload['custom:shopId'] as string);
+    }
+    
+    // Add staff role if available
+    if (payload['custom:staffRole']) {
+      headers.set('x-user-staff-role', payload['custom:staffRole'] as string);
+    }
+    
+    // Add permissions if available
+    if (payload['custom:permissions']) {
+      headers.set('x-user-permissions', payload['custom:permissions'] as string);
+    } else if (userRole === 'SHOP_STAFF' && payload['custom:staffRole']) {
+      // If permissions aren't explicitly set but we have a staff role,
+      // we can use the default permissions for that role
+      // In a real implementation, this would be handled more robustly
+      const staffRole = payload['custom:staffRole'] as string;
+      const defaultPermissions = {
+        'MANAGER': ['create:transaction', 'view:transactions', 'view:customers', 'manage:customer_loyalty', 'view:menu', 'manage:menu', 'view:loyalty_programs', 'view:staff', 'view:settings'],
+        'BARISTA': ['create:transaction', 'view:transactions', 'view:customers', 'manage:customer_loyalty', 'view:menu'],
+        'CASHIER': ['create:transaction', 'view:transactions', 'view:customers', 'view:menu'],
+      };
+      
+      if (staffRole in defaultPermissions) {
+        headers.set('x-user-permissions', JSON.stringify(defaultPermissions[staffRole as keyof typeof defaultPermissions]));
+      }
     }
 
     // Continue to the next middleware or API route
