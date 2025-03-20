@@ -81,6 +81,10 @@ export const auth = {
           });
         },
         onFailure: (err) => {
+          // Add email to error object for UserNotConfirmedException
+          if (err.code === 'UserNotConfirmedException') {
+            (err as any).email = email;
+          }
           reject(err);
         },
       });
@@ -172,7 +176,7 @@ export const auth = {
       throw new Error('Cognito is not configured. Please set up AWS Cognito credentials.');
     }
     
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const userPool = getUserPool();
       const cognitoUser = userPool.getCurrentUser();
       
@@ -182,7 +186,20 @@ export const auth = {
       }
       
       cognitoUser.getSession((err: Error | null, session: CognitoUserSession | null) => {
-        if (err || !session || !session.isValid()) {
+        if (err) {
+          // Check if the error is due to user not being confirmed
+          if ((err as any).code === 'UserNotConfirmedException') {
+            const error = err as any;
+            error.email = cognitoUser.getUsername();
+            reject(error);
+            return;
+          }
+          
+          resolve(null);
+          return;
+        }
+        
+        if (!session || !session.isValid()) {
           resolve(null);
           return;
         }

@@ -36,8 +36,15 @@ export default function SuperAdminLayout({
         
         setUser(currentUser);
         setIsLoading(false);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Authentication error:', error);
+        
+        // Check if the error is due to user not being confirmed
+        if (error.code === 'UserNotConfirmedException' && error.email) {
+          // Redirect to confirmation page with the email
+          router.push(`/super-admin/confirm?email=${encodeURIComponent(error.email)}`);
+          return;
+        }
         
         // For demo purposes, allow access even if there's an auth error
         // In production, you would redirect to login
