@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
-import { awsConfig } from '@/lib/aws-config';
+import { verifyToken } from '@/lib/jwt-validator';
+import { AuditLogger, AuditLogCategory, AuditLogSeverity } from '@/lib/audit-logger';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
+import { UserRole } from '@/lib/types';
 
 // Types for the middleware
 interface AuthMiddlewareOptions {
   requiredRoles?: string[];
   requireAuth?: boolean;
+  sensitiveOperation?: boolean;
 }
 
 // Default options
 const defaultOptions: AuthMiddlewareOptions = {
   requireAuth: true,
   requiredRoles: [],
+  sensitiveOperation: false,
 };
 
 /**
@@ -25,16 +29,73 @@ export async function authMiddleware(
   options: AuthMiddlewareOptions = defaultOptions
 ): Promise<NextResponse> {
   const mergedOptions = { ...defaultOptions, ...options };
-  const { requiredRoles, requireAuth } = mergedOptions;
+  const { requiredRoles, requireAuth, sensitiveOperation } = mergedOptions;
 
   // Skip auth check if not required
   if (!requireAuth) {
     return NextResponse.next();
   }
 
+  // Get client IP for rate limiting and audit logging
+  const clientIp = req.headers.get('x-forwarded-for') || 
+                   req.headers.get('x-real-ip') || 
+                   '127.0.0.1';
+  
+  // Get user agent for audit logging
+  const userAgent = req.headers.get('user-agent') || 'Unknown';
+
+  // Apply rate limiting based on IP address
+  const rateLimitKey = `auth:${clientIp}`;
+  const rateLimitConfig = sensitiveOperation ? RATE_LIMITS.API_SENSITIVE : RATE_LIMITS.API_GENERAL;
+  const rateLimitResult = checkRateLimit(rateLimitKey, rateLimitConfig);
+
+  if (!rateLimitResult.allowed) {
+    // Log rate limit exceeded
+    await AuditLogger.getInstance().log({
+      action: 'Rate limit exceeded',
+      category: AuditLogCategory.AUTHENTICATION,
+      severity: AuditLogSeverity.WARNING,
+      ipAddress: clientIp,
+      userAgent,
+      status: 'FAILURE',
+      details: {
+        path: req.nextUrl.pathname,
+        resetAt: rateLimitResult.resetAt,
+      },
+    });
+
+    return NextResponse.json(
+      { 
+        error: 'Too many requests', 
+        resetAt: rateLimitResult.resetAt.toISOString() 
+      },
+      { 
+        status: 429,
+        headers: {
+          'Retry-After': Math.ceil((rateLimitResult.resetAt.getTime() - Date.now()) / 1000).toString(),
+          'X-RateLimit-Limit': rateLimitConfig.limit.toString(),
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': Math.ceil(rateLimitResult.resetAt.getTime() / 1000).toString(),
+        }
+      }
+    );
+  }
+
   // Get the authorization header
   const authHeader = req.headers.get('authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    await AuditLogger.getInstance().log({
+      action: 'Missing or invalid authorization header',
+      category: AuditLogCategory.AUTHENTICATION,
+      severity: AuditLogSeverity.WARNING,
+      ipAddress: clientIp,
+      userAgent,
+      status: 'FAILURE',
+      details: {
+        path: req.nextUrl.pathname,
+      },
+    });
+
     return NextResponse.json(
       { error: 'Unauthorized: Missing or invalid authorization header' },
       { status: 401 }
@@ -44,6 +105,18 @@ export async function authMiddleware(
   // Extract the token
   const token = authHeader.split(' ')[1];
   if (!token) {
+    await AuditLogger.getInstance().log({
+      action: 'Missing token',
+      category: AuditLogCategory.AUTHENTICATION,
+      severity: AuditLogSeverity.WARNING,
+      ipAddress: clientIp,
+      userAgent,
+      status: 'FAILURE',
+      details: {
+        path: req.nextUrl.pathname,
+      },
+    });
+
     return NextResponse.json(
       { error: 'Unauthorized: Missing token' },
       { status: 401 }
@@ -51,14 +124,24 @@ export async function authMiddleware(
   }
 
   try {
-    // Verify the JWT token
-    // In a real implementation, you would use the Cognito JWT verification
-    // with the correct JWK from your Cognito user pool
-    const secret = new TextEncoder().encode(awsConfig.jwtSecret || 'your-jwt-secret-key');
-    const { payload } = await jwtVerify(token, secret);
+    // Verify the JWT token using our enhanced validator
+    const { payload } = await verifyToken(token);
 
     // Check if the token has the required claims
     if (!payload.sub || !payload['custom:userRole']) {
+      await AuditLogger.getInstance().log({
+        action: 'Invalid token claims',
+        category: AuditLogCategory.AUTHENTICATION,
+        severity: AuditLogSeverity.WARNING,
+        ipAddress: clientIp,
+        userAgent,
+        status: 'FAILURE',
+        details: {
+          path: req.nextUrl.pathname,
+          missingClaims: !payload.sub ? 'sub' : 'custom:userRole',
+        },
+      });
+
       return NextResponse.json(
         { error: 'Unauthorized: Invalid token claims' },
         { status: 401 }
@@ -68,11 +151,34 @@ export async function authMiddleware(
     // Check if the user has the required role
     const userRole = payload['custom:userRole'] as string;
     if (requiredRoles.length > 0 && !requiredRoles.includes(userRole)) {
+      await AuditLogger.getInstance().logAccessDenied(
+        payload.sub as string,
+        userRole as UserRole,
+        'access protected route',
+        req.nextUrl.pathname,
+        clientIp
+      );
+
       return NextResponse.json(
         { error: 'Forbidden: Insufficient permissions' },
         { status: 403 }
       );
     }
+
+    // Log successful authentication
+    await AuditLogger.getInstance().log({
+      userId: payload.sub as string,
+      userRole: userRole as UserRole,
+      action: 'Authenticated successfully',
+      category: AuditLogCategory.AUTHENTICATION,
+      severity: AuditLogSeverity.INFO,
+      ipAddress: clientIp,
+      userAgent,
+      status: 'SUCCESS',
+      details: {
+        path: req.nextUrl.pathname,
+      },
+    });
 
     // Add user info to the request for downstream handlers
     const requestWithUser = req.clone();
@@ -111,6 +217,11 @@ export async function authMiddleware(
       }
     }
 
+    // Add rate limit headers
+    headers.set('X-RateLimit-Limit', rateLimitConfig.limit.toString());
+    headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+    headers.set('X-RateLimit-Reset', Math.ceil(rateLimitResult.resetAt.getTime() / 1000).toString());
+
     // Continue to the next middleware or API route
     return NextResponse.next({
       request: {
@@ -119,6 +230,20 @@ export async function authMiddleware(
     });
   } catch (error) {
     console.error('Token verification failed:', error);
+    
+    await AuditLogger.getInstance().log({
+      action: 'Token verification failed',
+      category: AuditLogCategory.AUTHENTICATION,
+      severity: AuditLogSeverity.WARNING,
+      ipAddress: clientIp,
+      userAgent,
+      status: 'FAILURE',
+      details: {
+        path: req.nextUrl.pathname,
+        error: (error as Error).message,
+      },
+    });
+
     return NextResponse.json(
       { error: 'Unauthorized: Invalid token' },
       { status: 401 }
@@ -133,6 +258,7 @@ export function withSuperAdminAuth() {
   return (req: NextRequest) =>
     authMiddleware(req, {
       requiredRoles: ['SUPER_ADMIN'],
+      sensitiveOperation: true,
     });
 }
 
@@ -143,6 +269,7 @@ export function withShopAdminAuth() {
   return (req: NextRequest) =>
     authMiddleware(req, {
       requiredRoles: ['SUPER_ADMIN', 'SHOP_ADMIN'],
+      sensitiveOperation: true,
     });
 }
 
@@ -163,5 +290,16 @@ export function withAuth() {
   return (req: NextRequest) =>
     authMiddleware(req, {
       requireAuth: true,
+    });
+}
+
+/**
+ * Middleware factory for sensitive operations that require authentication
+ */
+export function withSensitiveAuth() {
+  return (req: NextRequest) =>
+    authMiddleware(req, {
+      requireAuth: true,
+      sensitiveOperation: true,
     });
 }
