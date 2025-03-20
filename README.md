@@ -15,6 +15,7 @@ BrewRewards is a comprehensive loyalty and rewards platform designed specificall
 - [API](#api)
 - [Development](#development)
 - [Deployment](#deployment)
+- [Resource Management](#resource-management)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -291,6 +292,30 @@ npm run deploy
 ```
 
 After deployment, your environment variables will be automatically updated in the `.env.local` file.
+
+## Resource Management
+
+To manage AWS resources used by BrewRewards:
+
+### Deploying Resources
+
+```bash
+cd infrastructure
+npm run deploy
+```
+
+### Removing Resources
+
+When you're done with the application or want to clean up your AWS account:
+
+```bash
+cd infrastructure
+npm run destroy
+```
+
+This will remove all AWS resources and prevent further charges.
+
+For detailed information about resource management, see [Resource Management Documentation](docs/resource-management.md).
 
 ## Contributing
 

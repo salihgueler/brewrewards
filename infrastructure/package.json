@@ -9,7 +9,8 @@
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk",
-    "deploy": "./deploy.sh"
+    "deploy": "./deploy.sh",
+    "destroy": "./destroy.sh"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",
