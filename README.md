@@ -8,6 +8,7 @@ BrewRewards is a comprehensive loyalty and rewards platform designed specificall
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
+- [Quick Demo Setup](#quick-demo-setup)
 - [Project Structure](#project-structure)
 - [Infrastructure](#infrastructure)
 - [Authentication](#authentication)
@@ -86,7 +87,42 @@ BrewRewards uses a serverless architecture built on AWS services. The frontend i
 - **Amazon DynamoDB**: NoSQL database
 - **Amazon S3**: Object storage for images
 
+## Quick Demo Setup
+
+The easiest way to run the BrewRewards demo is using our one-command setup script:
+
+```bash
+./run-demo.sh
+```
+
+This script will:
+1. Check for AWS CLI and proper configuration
+2. Install all necessary dependencies
+3. Deploy the AWS infrastructure if it's not already deployed
+4. Configure all environment variables automatically
+5. Start the Next.js application
+
+### Demo Credentials
+
+Once the application is running, you can use these demo credentials:
+
+- **Shop Admin**: admin@example.com / Password123
+- **Customer**: customer@example.com / Password123
+
+### Demo URLs
+
+- **Shop Customer View**: http://localhost:3000/shops/demo
+- **Shop Admin Portal**: http://localhost:3000/shop-admin
+
+### Requirements
+
+- Node.js 18.x or later
+- AWS account
+- AWS CLI configured locally
+
 ## Getting Started
+
+If you prefer to set up the project manually, follow these steps:
 
 ### Prerequisites
 
@@ -108,38 +144,24 @@ BrewRewards uses a serverless architecture built on AWS services. The frontend i
    npm install
    ```
 
-3. Set up environment variables:
-   ```bash
-   cp .env.example .env.local
-   ```
-   Edit `.env.local` with your AWS configuration values.
-
-4. Deploy the AWS infrastructure:
+3. Deploy the AWS infrastructure:
    ```bash
    cd infrastructure
    npm install
-   npm run cdk deploy
+   npm run deploy
    ```
 
-5. Update the AWS configuration:
-   After deploying the infrastructure, update the `.env.local` file with the outputs from the CDK deployment:
-   ```
-   NEXT_PUBLIC_AWS_REGION=us-east-1
-   NEXT_PUBLIC_USER_POOL_ID=<your-user-pool-id>
-   NEXT_PUBLIC_USER_POOL_CLIENT_ID=<your-user-pool-client-id>
-   NEXT_PUBLIC_GRAPHQL_API_URL=<your-graphql-api-url>
-   NEXT_PUBLIC_GRAPHQL_API_ID=<your-graphql-api-id>
-   NEXT_PUBLIC_IMAGES_BUCKET_NAME=<your-images-bucket-name>
-   NEXT_PUBLIC_IMAGES_BUCKET_DOMAIN_NAME=<your-images-bucket-domain-name>
-   ```
+   This will:
+   - Deploy all AWS resources
+   - Create a `.env.local` file with all necessary environment variables
 
-6. Run the development server:
+4. Run the development server:
    ```bash
    cd ..
    npm run dev
    ```
 
-7. Open [http://localhost:3000](http://localhost:3000) in your browser.
+5. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Project Structure
 
@@ -265,10 +287,10 @@ vercel
 Deploy AWS resources:
 ```bash
 cd infrastructure
-npm run cdk deploy
+npm run deploy
 ```
 
-After deployment, update your environment variables with the outputs from the CDK deployment.
+After deployment, your environment variables will be automatically updated in the `.env.local` file.
 
 ## Contributing
 
