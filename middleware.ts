@@ -1,46 +1,50 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { withAuth, withSuperAdminAuth, withShopAdminAuth, withShopStaffAuth } from './middleware/auth';
 
-// This function can be marked `async` if using `await` inside
+// Define paths that should be protected by different auth levels
+const superAdminPaths = ['/api/super-admin', '/api/shops/create', '/api/users/role'];
+const shopAdminPaths = ['/api/shop-admin', '/api/shops/[shopId]'];
+const shopStaffPaths = ['/api/staff', '/api/transactions'];
+const authenticatedPaths = ['/api/user', '/api/rewards'];
+
+/**
+ * Middleware function that runs before requests
+ */
 export function middleware(request: NextRequest) {
-  const url = request.nextUrl;
-  const hostname = request.headers.get('host') || '';
-  
-  // Define our domain name (or localhost for development)
-  const currentHost = 
-    process.env.NODE_ENV === 'production'
-      ? hostname.replace(`.brewrewards.com`, '')
-      : hostname.replace(`.localhost:3000`, '');
-  
-  // Exclude main domain and static files
-  if (
-    currentHost === 'brewrewards' || 
-    currentHost === 'www' || 
-    currentHost === 'localhost:3000' ||
-    url.pathname.startsWith('/_next') || 
-    url.pathname.startsWith('/api') || 
-    url.pathname.startsWith('/static') ||
-    url.pathname.includes('.')
-  ) {
-    return NextResponse.next();
+  const { pathname } = request.nextUrl;
+
+  // Check if the request is for an API route
+  if (pathname.startsWith('/api/')) {
+    // Super admin routes
+    if (superAdminPaths.some(path => pathname.startsWith(path))) {
+      return withSuperAdminAuth()(request);
+    }
+
+    // Shop admin routes
+    if (shopAdminPaths.some(path => pathname.startsWith(path))) {
+      return withShopAdminAuth()(request);
+    }
+
+    // Shop staff routes
+    if (shopStaffPaths.some(path => pathname.startsWith(path))) {
+      return withShopStaffAuth()(request);
+    }
+
+    // Routes that require authentication but no specific role
+    if (authenticatedPaths.some(path => pathname.startsWith(path))) {
+      return withAuth()(request);
+    }
   }
-  
-  // Rewrite for subdomain
-  url.pathname = `/shops/${currentHost}${url.pathname}`;
-  
-  return NextResponse.rewrite(url);
+
+  // For non-API routes or routes without specific auth requirements, continue
+  return NextResponse.next();
 }
 
-// See "Matching Paths" below to learn more
+// Configure the paths that should trigger this middleware
 export const config = {
   matcher: [
-    /*
-     * Match all paths except for:
-     * 1. /api routes
-     * 2. /_next (Next.js internals)
-     * 3. /static (static files)
-     * 4. all root files inside /public (robots.txt, favicon.ico, etc.)
-     */
-    '/((?!api|_next|static|[\\w-]+\\.\\w+).*)',
+    // Match all API routes
+    '/api/:path*',
   ],
 };
