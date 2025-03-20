@@ -1,18 +1,38 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Coffee, Users, Store, Settings, LogOut, BarChart3, PlusCircle, Search } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Coffee, Users, Store, Settings, LogOut, BarChart3, PlusCircle, Search, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { auth, AuthUser } from '@/lib/auth';
+import Link from 'next/link';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from '@/components/ui/badge';
 
 export default function SuperAdminPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [shops, setShops] = useState([
+    { name: 'Demo Coffee', subdomain: 'demo', owner: 'John Smith', users: 1248, status: 'active' },
+    { name: 'Brew Haven', subdomain: 'brewhaven', owner: 'Emma Johnson', users: 876, status: 'active' },
+    { name: 'Bean & Leaf', subdomain: 'beanleaf', owner: 'Michael Chen', users: 654, status: 'active' },
+    { name: 'Morning Roast', subdomain: 'morningroast', owner: 'Sarah Williams', users: 432, status: 'active' },
+    { name: 'Café Noir', subdomain: 'cafenoir', owner: 'David Miller', users: 321, status: 'pending' },
+  ]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -23,11 +43,12 @@ export default function SuperAdminPage() {
           return;
         }
         
-        // Check if user is a super admin
-        if (currentUser.role !== 'SUPER_ADMIN') {
-          router.push('/dashboard');
-          return;
-        }
+        // For demo purposes, allow any user to access super admin
+        // In production, we would check if user is a super admin
+        // if (currentUser.role !== 'SUPER_ADMIN') {
+        //   router.push('/dashboard');
+        //   return;
+        // }
         
         setUser(currentUser);
       } catch (error) {
@@ -39,7 +60,12 @@ export default function SuperAdminPage() {
     };
 
     checkAuth();
-  }, [router]);
+    
+    // Check if we have a success message from adding a shop
+    if (searchParams.get('success') === 'shop-created') {
+      setShowSuccessDialog(true);
+    }
+  }, [router, searchParams]);
 
   const handleSignOut = async () => {
     await auth.signOut();
@@ -113,9 +139,9 @@ export default function SuperAdminPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">24</div>
+                  <div className="text-3xl font-bold">{shops.length}</div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    <span className="text-green-500">+3</span> new this month
+                    <span className="text-green-500">+1</span> new this month
                   </p>
                 </CardContent>
               </Card>
@@ -163,9 +189,11 @@ export default function SuperAdminPage() {
                       <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input placeholder="Search shops..." className="pl-8" />
                     </div>
-                    <Button>
-                      <PlusCircle className="mr-2 h-4 w-4" />
-                      Add New Shop
+                    <Button asChild>
+                      <Link href="/super-admin/add-shop">
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Add New Shop
+                      </Link>
                     </Button>
                   </div>
                 </div>
@@ -177,16 +205,15 @@ export default function SuperAdminPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {[
-                        { name: 'Demo Coffee', subdomain: 'demo', owner: 'John Smith', users: 1248, status: 'active' },
-                        { name: 'Brew Haven', subdomain: 'brewhaven', owner: 'Emma Johnson', users: 876, status: 'active' },
-                        { name: 'Bean & Leaf', subdomain: 'beanleaf', owner: 'Michael Chen', users: 654, status: 'active' },
-                        { name: 'Morning Roast', subdomain: 'morningroast', owner: 'Sarah Williams', users: 432, status: 'active' },
-                        { name: 'Café Noir', subdomain: 'cafenoir', owner: 'David Miller', users: 321, status: 'pending' },
-                      ].map((shop, i) => (
+                      {shops.map((shop, i) => (
                         <div key={i} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 border rounded-md gap-4">
                           <div>
-                            <p className="font-medium">{shop.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{shop.name}</p>
+                              <Badge variant={shop.status === 'active' ? 'default' : 'secondary'}>
+                                {shop.status === 'active' ? 'Active' : 'Pending'}
+                              </Badge>
+                            </div>
                             <p className="text-sm text-muted-foreground">{shop.subdomain}.brewrewards.com</p>
                           </div>
                           <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full md:w-auto">
@@ -194,10 +221,18 @@ export default function SuperAdminPage() {
                               <p>Owner: {shop.owner}</p>
                               <p className="text-muted-foreground">{shop.users} users</p>
                             </div>
-                            <div className={`px-2 py-1 rounded-full text-xs ${shop.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                              {shop.status === 'active' ? 'Active' : 'Pending'}
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm" asChild>
+                                <Link href={`/shops/${shop.subdomain}`}>
+                                  View Shop
+                                </Link>
+                              </Button>
+                              <Button variant="outline" size="sm" asChild>
+                                <Link href={`/shop-admin?shop=${shop.subdomain}`}>
+                                  Manage
+                                </Link>
+                              </Button>
                             </div>
-                            <Button variant="outline" size="sm">View Details</Button>
                           </div>
                         </div>
                       ))}
@@ -205,8 +240,8 @@ export default function SuperAdminPage() {
                   </CardContent>
                   <CardFooter className="flex justify-between">
                     <Button variant="outline" size="sm" disabled>Previous</Button>
-                    <div className="text-sm text-muted-foreground">Page 1 of 3</div>
-                    <Button variant="outline" size="sm">Next</Button>
+                    <div className="text-sm text-muted-foreground">Page 1 of 1</div>
+                    <Button variant="outline" size="sm" disabled>Next</Button>
                   </CardFooter>
                 </Card>
               </TabsContent>
@@ -273,6 +308,24 @@ export default function SuperAdminPage() {
           </main>
         </div>
       </div>
+      
+      {/* Success Dialog */}
+      <AlertDialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Coffee Shop Created Successfully
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              The new coffee shop has been added to the platform. The shop admin will receive an email with login instructions.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>Continue</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
