@@ -125,8 +125,8 @@ export default function SuperAdminRegisterPage() {
       // This would typically be done through a secure backend API
       console.log('Created user:', user);
       
-      // For demo purposes, we'll just redirect to the super admin dashboard
-      router.push('/super-admin?newAdmin=true');
+      // Redirect to confirmation page
+      router.push(`/super-admin/confirm?email=${encodeURIComponent(formData.email)}`);
     } catch (error) {
       console.error('Registration error:', error);
       setErrors({
