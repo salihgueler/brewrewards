@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Coffee } from 'lucide-react';
+import { Coffee, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -119,6 +119,15 @@ export default function LoginPage() {
               className="text-primary hover:underline"
             >
               Sign up
+            </Link>
+          </div>
+          <div className="flex justify-center">
+            <Link 
+              href="/super-admin/register" 
+              className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+            >
+              <Shield className="h-3 w-3" />
+              Register as Super Admin
             </Link>
           </div>
           {shopSubdomain && (
