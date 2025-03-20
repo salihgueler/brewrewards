@@ -1,76 +1,77 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Coffee, Users, Store, Settings, LogOut, BarChart3, PlusCircle, Search, CheckCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useRouter } from 'next/navigation';
+import { 
+  Coffee, 
+  Users, 
+  Store, 
+  TrendingUp, 
+  Award, 
+  ShoppingBag,
+  ArrowUpRight,
+  ArrowDownRight,
+  BarChart3
+} from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { auth, AuthUser } from '@/lib/auth';
-import Link from 'next/link';
-import { 
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Badge } from '@/components/ui/badge';
 
-export default function SuperAdminPage() {
+// Mock data for the dashboard
+const mockStats = {
+  totalShops: 12,
+  activeShops: 10,
+  totalUsers: 1250,
+  newUsersThisMonth: 78,
+  totalTransactions: 8750,
+  transactionsThisMonth: 950,
+  totalRevenue: 43250.75,
+  revenueThisMonth: 5125.50,
+  totalRewards: 1450,
+  redeemedRewards: 875,
+};
+
+// Mock shop data
+const mockShops = [
+  { id: 'shop_1', name: 'Demo Coffee', location: 'San Francisco, CA', transactions: 1250, revenue: 6250.50, status: 'active' },
+  { id: 'shop_2', name: 'Bean & Leaf', location: 'Seattle, WA', transactions: 980, revenue: 4900.25, status: 'active' },
+  { id: 'shop_3', name: 'Morning Roast', location: 'Portland, OR', transactions: 1100, revenue: 5500.00, status: 'active' },
+  { id: 'shop_4', name: 'Café Noir', location: 'Los Angeles, CA', transactions: 1350, revenue: 6750.00, status: 'active' },
+  { id: 'shop_5', name: 'Urban Brew', location: 'Chicago, IL', transactions: 950, revenue: 4750.00, status: 'active' },
+];
+
+export default function SuperAdminDashboard() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [shops, setShops] = useState([
-    { name: 'Demo Coffee', subdomain: 'demo', owner: 'John Smith', users: 1248, status: 'active' },
-    { name: 'Brew Haven', subdomain: 'brewhaven', owner: 'Emma Johnson', users: 876, status: 'active' },
-    { name: 'Bean & Leaf', subdomain: 'beanleaf', owner: 'Michael Chen', users: 654, status: 'active' },
-    { name: 'Morning Roast', subdomain: 'morningroast', owner: 'Sarah Williams', users: 432, status: 'active' },
-    { name: 'Café Noir', subdomain: 'cafenoir', owner: 'David Miller', users: 321, status: 'pending' },
-  ]);
-
+  const [activeTab, setActiveTab] = useState('overview');
+  
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const currentUser = await auth.getCurrentUser();
-        if (!currentUser) {
-          router.push('/login');
+        const user = await auth.getCurrentUser();
+        if (!user) {
+          router.push('/login?userType=super-admin&redirect=/super-admin');
           return;
         }
         
-        // For demo purposes, allow any user to access super admin
-        // In production, we would check if user is a super admin
-        // if (currentUser.role !== 'SUPER_ADMIN') {
-        //   router.push('/dashboard');
-        //   return;
-        // }
+        // Check if user is a super admin
+        if (user.role !== 'SUPER_ADMIN') {
+          router.push('/dashboard');
+          return;
+        }
         
-        setUser(currentUser);
+        setCurrentUser(user);
+        setIsLoading(false);
       } catch (error) {
         console.error('Authentication error:', error);
-        router.push('/login');
-      } finally {
-        setIsLoading(false);
+        router.push('/login?userType=super-admin&redirect=/super-admin');
       }
     };
 
     checkAuth();
-    
-    // Check if we have a success message from adding a shop
-    if (searchParams.get('success') === 'shop-created') {
-      setShowSuccessDialog(true);
-    }
-  }, [router, searchParams]);
-
-  const handleSignOut = async () => {
-    await auth.signOut();
-    router.push('/');
-  };
+  }, [router]);
 
   if (isLoading) {
     return (
@@ -81,251 +82,208 @@ export default function SuperAdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="flex">
-        {/* Sidebar */}
-        <div className="hidden md:flex flex-col w-64 border-r h-screen">
-          <div className="p-4 border-b">
-            <div className="flex items-center gap-2">
-              <Coffee className="h-6 w-6" />
-              <span className="font-bold">BrewRewards Admin</span>
-            </div>
+    <div className="container px-4 py-8">
+      <h1 className="text-3xl font-bold mb-6">Super Admin Dashboard</h1>
+      
+      <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="shops">Shops</TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="transactions">Transactions</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Shops</CardTitle>
+                <Store className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{mockStats.totalShops}</div>
+                <p className="text-xs text-muted-foreground">
+                  {mockStats.activeShops} active shops
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{mockStats.totalUsers}</div>
+                <p className="text-xs text-muted-foreground flex items-center">
+                  <ArrowUpRight className="mr-1 h-3 w-3 text-green-500" />
+                  <span className="text-green-500">{mockStats.newUsersThisMonth}</span> new this month
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">${mockStats.totalRevenue.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground flex items-center">
+                  <ArrowUpRight className="mr-1 h-3 w-3 text-green-500" />
+                  <span className="text-green-500">${mockStats.revenueThisMonth.toLocaleString()}</span> this month
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Rewards Redeemed</CardTitle>
+                <Award className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{mockStats.redeemedRewards}</div>
+                <p className="text-xs text-muted-foreground">
+                  out of {mockStats.totalRewards} total rewards
+                </p>
+              </CardContent>
+            </Card>
           </div>
-          <nav className="flex-1 p-4 space-y-2">
-            <Button variant="ghost" className="w-full justify-start">
-              <BarChart3 className="mr-2 h-4 w-4" />
-              Dashboard
-            </Button>
-            <Button variant="ghost" className="w-full justify-start">
-              <Store className="mr-2 h-4 w-4" />
-              Coffee Shops
-            </Button>
-            <Button variant="ghost" className="w-full justify-start">
-              <Users className="mr-2 h-4 w-4" />
-              Users
-            </Button>
-            <Button variant="ghost" className="w-full justify-start">
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
-            </Button>
-          </nav>
-          <div className="p-4 border-t">
-            <Button variant="ghost" className="w-full justify-start" onClick={handleSignOut}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign Out
-            </Button>
-          </div>
-        </div>
-
-        {/* Main content */}
-        <div className="flex-1">
-          <header className="border-b">
-            <div className="container px-4 py-4 flex items-center justify-between">
-              <h1 className="text-xl font-bold">Platform Dashboard</h1>
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-muted-foreground">
-                  {user?.firstName} {user?.lastName}
-                </span>
-              </div>
-            </div>
-          </header>
-
-          <main className="container px-4 py-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Total Coffee Shops
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{shops.length}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    <span className="text-green-500">+1</span> new this month
-                  </p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Total Users
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">12,486</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    <span className="text-green-500">+8%</span> from last month
-                  </p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Platform Activity
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">45,320</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    <span className="text-green-500">+12%</span> from last month
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Tabs defaultValue="shops" className="mb-8">
-              <TabsList className="grid grid-cols-2 mb-8 w-full md:w-auto">
-                <TabsTrigger value="shops">Coffee Shops</TabsTrigger>
-                <TabsTrigger value="users">Users</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="shops" className="space-y-6">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  <h2 className="text-2xl font-bold">Coffee Shop Management</h2>
-                  <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-                    <div className="relative w-full md:w-64">
-                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input placeholder="Search shops..." className="pl-8" />
+          
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+            <Card className="col-span-4">
+              <CardHeader>
+                <CardTitle>Revenue Overview</CardTitle>
+              </CardHeader>
+              <CardContent className="pl-2">
+                <div className="h-[200px] flex items-center justify-center bg-muted/20 rounded-md">
+                  <BarChart3 className="h-8 w-8 text-muted-foreground" />
+                  <span className="ml-2 text-muted-foreground">Revenue chart will be displayed here</span>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="col-span-3">
+              <CardHeader>
+                <CardTitle>Top Performing Shops</CardTitle>
+                <CardDescription>
+                  Based on transaction volume
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {mockShops.slice(0, 3).map((shop) => (
+                    <div key={shop.id} className="flex items-center">
+                      <div className="bg-primary/10 p-2 rounded-full mr-3">
+                        <Coffee className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <p className="text-sm font-medium leading-none">{shop.name}</p>
+                        <p className="text-xs text-muted-foreground">{shop.location}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium">${shop.revenue.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">{shop.transactions} txns</p>
+                      </div>
                     </div>
-                    <Button asChild>
-                      <Link href="/super-admin/add-shop">
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Add New Shop
-                      </Link>
+                  ))}
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button variant="outline" size="sm" className="w-full" onClick={() => setActiveTab('shops')}>
+                  View All Shops
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="shops" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Coffee Shops</CardTitle>
+              <CardDescription>
+                Manage all coffee shops in the platform
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {mockShops.map((shop) => (
+                  <div key={shop.id} className="flex items-center justify-between p-4 border rounded-md">
+                    <div className="flex items-center">
+                      <div className="bg-primary/10 p-2 rounded-full mr-3">
+                        <Coffee className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{shop.name}</p>
+                        <p className="text-sm text-muted-foreground">{shop.location}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">${shop.revenue.toLocaleString()}</p>
+                      <p className="text-sm text-muted-foreground">{shop.transactions} transactions</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => router.push(`/super-admin/shops/${shop.id}`)}>
+                      View Details
                     </Button>
                   </div>
-                </div>
-                
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Registered Coffee Shops</CardTitle>
-                    <CardDescription>Manage all coffee shops on the platform</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {shops.map((shop, i) => (
-                        <div key={i} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 border rounded-md gap-4">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium">{shop.name}</p>
-                              <Badge variant={shop.status === 'active' ? 'default' : 'secondary'}>
-                                {shop.status === 'active' ? 'Active' : 'Pending'}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground">{shop.subdomain}.brewrewards.com</p>
-                          </div>
-                          <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full md:w-auto">
-                            <div className="text-sm">
-                              <p>Owner: {shop.owner}</p>
-                              <p className="text-muted-foreground">{shop.users} users</p>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button variant="outline" size="sm" asChild>
-                                <Link href={`/shops/${shop.subdomain}`}>
-                                  View Shop
-                                </Link>
-                              </Button>
-                              <Button variant="outline" size="sm" asChild>
-                                <Link href={`/shop-admin?shop=${shop.subdomain}`}>
-                                  Manage
-                                </Link>
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                  <CardFooter className="flex justify-between">
-                    <Button variant="outline" size="sm" disabled>Previous</Button>
-                    <div className="text-sm text-muted-foreground">Page 1 of 1</div>
-                    <Button variant="outline" size="sm" disabled>Next</Button>
-                  </CardFooter>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="users" className="space-y-6">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  <h2 className="text-2xl font-bold">User Management</h2>
-                  <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-                    <div className="relative w-full md:w-64">
-                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input placeholder="Search users..." className="pl-8" />
-                    </div>
-                    <Button>Export Data</Button>
-                  </div>
-                </div>
-                
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Platform Users</CardTitle>
-                    <CardDescription>View and manage all users across coffee shops</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {[
-                        { name: 'John Doe', email: 'john@example.com', role: 'CUSTOMER', shop: 'Demo Coffee', joined: 'Jan 15, 2025' },
-                        { name: 'Emma Johnson', email: 'emma@example.com', role: 'SHOP_ADMIN', shop: 'Brew Haven', joined: 'Dec 10, 2024' },
-                        { name: 'Michael Chen', email: 'michael@example.com', role: 'SHOP_ADMIN', shop: 'Bean & Leaf', joined: 'Jan 5, 2025' },
-                        { name: 'Sarah Williams', email: 'sarah@example.com', role: 'SHOP_ADMIN', shop: 'Morning Roast', joined: 'Feb 20, 2025' },
-                        { name: 'Robert Kim', email: 'robert@example.com', role: 'CUSTOMER', shop: 'Demo Coffee', joined: 'Feb 28, 2025' },
-                      ].map((user, i) => (
-                        <div key={i} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 border rounded-md gap-4">
-                          <div>
-                            <p className="font-medium">{user.name}</p>
-                            <p className="text-sm text-muted-foreground">{user.email}</p>
-                          </div>
-                          <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full md:w-auto">
-                            <div className="text-sm">
-                              <p>{user.shop}</p>
-                              <p className="text-muted-foreground">Joined {user.joined}</p>
-                            </div>
-                            <div className={`px-2 py-1 rounded-full text-xs ${
-                              user.role === 'SUPER_ADMIN' ? 'bg-purple-100 text-purple-800' : 
-                              user.role === 'SHOP_ADMIN' ? 'bg-blue-100 text-blue-800' : 
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {user.role === 'SUPER_ADMIN' ? 'Super Admin' : 
-                               user.role === 'SHOP_ADMIN' ? 'Shop Admin' : 
-                               'Customer'}
-                            </div>
-                            <Button variant="outline" size="sm">View Details</Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                  <CardFooter className="flex justify-between">
-                    <Button variant="outline" size="sm" disabled>Previous</Button>
-                    <div className="text-sm text-muted-foreground">Page 1 of 250</div>
-                    <Button variant="outline" size="sm">Next</Button>
-                  </CardFooter>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </main>
-        </div>
-      </div>
-      
-      {/* Success Dialog */}
-      <AlertDialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              Coffee Shop Created Successfully
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              The new coffee shop has been added to the platform. The shop admin will receive an email with login instructions.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction>Continue</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+                ))}
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button onClick={() => router.push('/super-admin/shops')}>
+                Manage All Shops
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="users" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>User Management</CardTitle>
+              <CardDescription>
+                View and manage users across the platform
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="h-[400px] flex items-center justify-center">
+              <div className="text-center">
+                <Users className="h-12 w-12 mx-auto text-muted-foreground" />
+                <h3 className="mt-4 text-lg font-medium">User Management</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Manage users, assign roles, and view user activity
+                </p>
+                <Button className="mt-4" onClick={() => router.push('/super-admin/users')}>
+                  Go to User Management
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="transactions" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Transaction Overview</CardTitle>
+              <CardDescription>
+                View transaction data across all shops
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="h-[400px] flex items-center justify-center">
+              <div className="text-center">
+                <ShoppingBag className="h-12 w-12 mx-auto text-muted-foreground" />
+                <h3 className="mt-4 text-lg font-medium">Transaction Reports</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  View detailed transaction reports and analytics
+                </p>
+                <Button className="mt-4" onClick={() => router.push('/super-admin/transactions')}>
+                  View Transaction Reports
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
