@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { auth, AuthUser } from '@/lib/auth';
+import { SuperAdminNavigation } from './navigation';
 
 export default function SuperAdminLayout({
   children,
@@ -55,6 +56,11 @@ export default function SuperAdminLayout({
     checkAuth();
   }, [router, pathname]);
 
+  const handleSignOut = async () => {
+    await auth.signOut();
+    router.push('/');
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -68,9 +74,13 @@ export default function SuperAdminLayout({
     return <>{children}</>;
   }
 
-  // For protected paths, only render if the user is authenticated and is a super admin
-  // For demo purposes, we'll render the content anyway
-  // In production, you would check: if (!user || user.role !== 'SUPER_ADMIN') return null;
-  
-  return <>{children}</>;
+  // For protected paths, render with navigation
+  return (
+    <div className="flex min-h-screen">
+      <SuperAdminNavigation onSignOut={handleSignOut} />
+      <div className="flex-1">
+        {children}
+      </div>
+    </div>
+  );
 }
