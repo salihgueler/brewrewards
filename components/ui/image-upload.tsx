@@ -3,7 +3,6 @@
 import { useState, useRef } from 'react';
 import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Button } from './button';
-import { uploadImageToS3, getImageUrl } from '@/lib/s3-upload';
 
 interface ImageUploadProps {
   shopId: string;
@@ -47,16 +46,21 @@ export function ImageUpload({
       const localPreview = URL.createObjectURL(file);
       setImage(localPreview);
 
-      // Upload to S3
-      const result = await uploadImageToS3(file, shopId);
-
-      // Call the callback with the uploaded image URL and key
-      onImageUploaded(result.url, result.key);
+      // In a real app, we would upload to S3 here
+      // For now, we'll just simulate a successful upload
+      setTimeout(() => {
+        // Mock successful upload
+        const mockImageKey = `${shopId}/images/${Date.now()}-${file.name}`;
+        const mockImageUrl = localPreview;
+        
+        // Call the callback with the uploaded image URL and key
+        onImageUploaded(mockImageUrl, mockImageKey);
+        setIsUploading(false);
+      }, 1500);
     } catch (err) {
       console.error('Error uploading image:', err);
       setError('Failed to upload image. Please try again.');
       setImage(null);
-    } finally {
       setIsUploading(false);
     }
   };

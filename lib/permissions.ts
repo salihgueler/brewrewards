@@ -1,147 +1,168 @@
-import { UserRole } from './types';
-
 /**
- * Permission types for shop staff
+ * Permissions system for BrewRewards
+ * Defines what actions different user roles can perform
  */
-export enum Permission {
-  // Transaction permissions
-  CREATE_TRANSACTION = 'create:transaction',
-  VIEW_TRANSACTIONS = 'view:transactions',
-  
-  // Customer permissions
-  VIEW_CUSTOMERS = 'view:customers',
-  MANAGE_CUSTOMER_LOYALTY = 'manage:customer_loyalty',
+
+export enum UserRole {
+  CUSTOMER = 'CUSTOMER',
+  SHOP_ADMIN = 'SHOP_ADMIN',
+  SUPER_ADMIN = 'SUPER_ADMIN',
+}
+
+export interface Permission {
+  // Shop permissions
+  viewShops: boolean;
+  viewAllShops: boolean;
+  createShop: boolean;
+  updateShop: boolean;
+  deleteShop: boolean;
   
   // Menu permissions
-  VIEW_MENU = 'view:menu',
-  MANAGE_MENU = 'manage:menu',
+  viewMenu: boolean;
+  createMenuItem: boolean;
+  updateMenuItem: boolean;
+  deleteMenuItem: boolean;
   
   // Loyalty program permissions
-  VIEW_LOYALTY_PROGRAMS = 'view:loyalty_programs',
-  MANAGE_LOYALTY_PROGRAMS = 'manage:loyalty_programs',
+  viewLoyaltyPrograms: boolean;
+  createLoyaltyProgram: boolean;
+  updateLoyaltyProgram: boolean;
+  deleteLoyaltyProgram: boolean;
   
-  // Staff permissions
-  VIEW_STAFF = 'view:staff',
-  MANAGE_STAFF = 'manage:staff',
+  // Customer permissions
+  joinLoyaltyProgram: boolean;
+  earnRewards: boolean;
+  redeemRewards: boolean;
+  viewOwnRewards: boolean;
   
-  // Shop settings permissions
-  VIEW_SETTINGS = 'view:settings',
-  MANAGE_SETTINGS = 'manage:settings',
+  // User management
+  viewUsers: boolean;
+  viewAllUsers: boolean;
+  createUser: boolean;
+  updateUser: boolean;
+  deleteUser: boolean;
 }
 
-/**
- * Default permission sets for different roles
- */
-export const DEFAULT_PERMISSIONS = {
-  [UserRole.SUPER_ADMIN]: Object.values(Permission),
-  [UserRole.SHOP_ADMIN]: Object.values(Permission),
-  [UserRole.SHOP_STAFF]: [
-    Permission.CREATE_TRANSACTION,
-    Permission.VIEW_TRANSACTIONS,
-    Permission.VIEW_CUSTOMERS,
-    Permission.MANAGE_CUSTOMER_LOYALTY,
-    Permission.VIEW_MENU,
-    Permission.VIEW_LOYALTY_PROGRAMS,
-  ],
-  [UserRole.CUSTOMER]: [],
+// Define permissions for each role
+const permissions: Record<UserRole, Permission> = {
+  [UserRole.CUSTOMER]: {
+    // Shop permissions
+    viewShops: true,
+    viewAllShops: false,
+    createShop: false,
+    updateShop: false,
+    deleteShop: false,
+    
+    // Menu permissions
+    viewMenu: true,
+    createMenuItem: false,
+    updateMenuItem: false,
+    deleteMenuItem: false,
+    
+    // Loyalty program permissions
+    viewLoyaltyPrograms: true,
+    createLoyaltyProgram: false,
+    updateLoyaltyProgram: false,
+    deleteLoyaltyProgram: false,
+    
+    // Customer permissions
+    joinLoyaltyProgram: true,
+    earnRewards: true,
+    redeemRewards: true,
+    viewOwnRewards: true,
+    
+    // User management
+    viewUsers: false,
+    viewAllUsers: false,
+    createUser: false,
+    updateUser: false,
+    deleteUser: false,
+  },
+  
+  [UserRole.SHOP_ADMIN]: {
+    // Shop permissions
+    viewShops: true,
+    viewAllShops: false,
+    createShop: false,
+    updateShop: true, // Can update their own shop
+    deleteShop: false,
+    
+    // Menu permissions
+    viewMenu: true,
+    createMenuItem: true,
+    updateMenuItem: true,
+    deleteMenuItem: true,
+    
+    // Loyalty program permissions
+    viewLoyaltyPrograms: true,
+    createLoyaltyProgram: true,
+    updateLoyaltyProgram: true,
+    deleteLoyaltyProgram: true,
+    
+    // Customer permissions
+    joinLoyaltyProgram: false,
+    earnRewards: false,
+    redeemRewards: false,
+    viewOwnRewards: false,
+    
+    // User management
+    viewUsers: true, // Can view users of their shop
+    viewAllUsers: false,
+    createUser: true, // Can create staff accounts
+    updateUser: true, // Can update staff accounts
+    deleteUser: true, // Can delete staff accounts
+  },
+  
+  [UserRole.SUPER_ADMIN]: {
+    // Shop permissions
+    viewShops: true,
+    viewAllShops: true,
+    createShop: true,
+    updateShop: true,
+    deleteShop: true,
+    
+    // Menu permissions
+    viewMenu: true,
+    createMenuItem: true,
+    updateMenuItem: true,
+    deleteMenuItem: true,
+    
+    // Loyalty program permissions
+    viewLoyaltyPrograms: true,
+    createLoyaltyProgram: true,
+    updateLoyaltyProgram: true,
+    deleteLoyaltyProgram: true,
+    
+    // Customer permissions
+    joinLoyaltyProgram: false,
+    earnRewards: false,
+    redeemRewards: false,
+    viewOwnRewards: false,
+    
+    // User management
+    viewUsers: true,
+    viewAllUsers: true,
+    createUser: true,
+    updateUser: true,
+    deleteUser: true,
+  },
 };
-
-/**
- * Permission sets for different staff roles
- */
-export const STAFF_ROLE_PERMISSIONS = {
-  MANAGER: [
-    Permission.CREATE_TRANSACTION,
-    Permission.VIEW_TRANSACTIONS,
-    Permission.VIEW_CUSTOMERS,
-    Permission.MANAGE_CUSTOMER_LOYALTY,
-    Permission.VIEW_MENU,
-    Permission.MANAGE_MENU,
-    Permission.VIEW_LOYALTY_PROGRAMS,
-    Permission.VIEW_STAFF,
-    Permission.VIEW_SETTINGS,
-  ],
-  BARISTA: [
-    Permission.CREATE_TRANSACTION,
-    Permission.VIEW_TRANSACTIONS,
-    Permission.VIEW_CUSTOMERS,
-    Permission.MANAGE_CUSTOMER_LOYALTY,
-    Permission.VIEW_MENU,
-  ],
-  CASHIER: [
-    Permission.CREATE_TRANSACTION,
-    Permission.VIEW_TRANSACTIONS,
-    Permission.VIEW_CUSTOMERS,
-    Permission.VIEW_MENU,
-  ],
-};
-
-/**
- * Interface for a user with permissions
- */
-export interface PermissionUser {
-  id: string;
-  role: UserRole;
-  permissions?: string[];
-  shopId?: string;
-}
 
 /**
  * Check if a user has a specific permission
- * @param user - The user to check
- * @param permission - The permission to check for
- * @returns Boolean indicating if the user has the permission
+ * @param userRole The role of the user
+ * @param permission The permission to check
+ * @returns boolean indicating if the user has the permission
  */
-export function hasPermission(user: PermissionUser, permission: Permission): boolean {
-  if (!user) {
-    return false;
-  }
-
-  // Super admins and shop admins have all permissions
-  if (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.SHOP_ADMIN) {
-    return true;
-  }
-
-  // Check if the user has the specific permission
-  return user.permissions?.includes(permission) || false;
+export function hasPermission(userRole: UserRole, permission: keyof Permission): boolean {
+  return permissions[userRole][permission];
 }
 
 /**
- * Check if a user has all of the specified permissions
- * @param user - The user to check
- * @param permissions - The permissions to check for
- * @returns Boolean indicating if the user has all the permissions
+ * Get all permissions for a specific role
+ * @param userRole The role to get permissions for
+ * @returns The permission object for the role
  */
-export function hasAllPermissions(user: PermissionUser, permissions: Permission[]): boolean {
-  if (!user) {
-    return false;
-  }
-
-  // Super admins and shop admins have all permissions
-  if (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.SHOP_ADMIN) {
-    return true;
-  }
-
-  // Check if the user has all the specified permissions
-  return permissions.every(permission => user.permissions?.includes(permission));
-}
-
-/**
- * Check if a user has any of the specified permissions
- * @param user - The user to check
- * @param permissions - The permissions to check for
- * @returns Boolean indicating if the user has any of the permissions
- */
-export function hasAnyPermission(user: PermissionUser, permissions: Permission[]): boolean {
-  if (!user) {
-    return false;
-  }
-
-  // Super admins and shop admins have all permissions
-  if (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.SHOP_ADMIN) {
-    return true;
-  }
-
-  // Check if the user has any of the specified permissions
-  return permissions.some(permission => user.permissions?.includes(permission));
+export function getRolePermissions(userRole: UserRole): Permission {
+  return permissions[userRole];
 }

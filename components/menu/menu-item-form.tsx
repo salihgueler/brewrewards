@@ -5,10 +5,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { ImageUpload } from '@/components/ui/image-upload';
 import {
   Form,
   FormControl,
@@ -18,57 +14,67 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { getImageUrl } from '@/lib/s3-upload';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ImageUpload } from '@/components/ui/image-upload';
+import { uploadImageToS3 } from '@/lib/s3-upload';
 
 // Define the form schema with Zod
 const menuItemSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
+  id: z.string().optional(),
+  shopId: z.string(),
+  name: z.string().min(2, { message: 'Name must be at least 2 characters' }),
   description: z.string().optional(),
-  price: z.coerce.number().min(0, 'Price must be a positive number'),
-  category: z.string().min(1, 'Category is required'),
+  price: z.coerce.number().min(0, { message: 'Price must be a positive number' }),
+  category: z.string().min(1, { message: 'Category is required' }),
+  imageKey: z.string().optional(),
   isAvailable: z.boolean().default(true),
-  allergens: z.string().optional(),
-  calories: z.coerce.number().optional(),
-  fat: z.coerce.number().optional(),
-  carbs: z.coerce.number().optional(),
-  protein: z.coerce.number().optional(),
-  ingredients: z.string().optional(),
+  allergens: z.array(z.string()).optional(),
+  nutritionalInfo: z
+    .object({
+      calories: z.coerce.number().optional(),
+      fat: z.coerce.number().optional(),
+      carbs: z.coerce.number().optional(),
+      protein: z.coerce.number().optional(),
+      ingredients: z.array(z.string()).optional(),
+    })
+    .optional(),
 });
 
-// Define the form values type
-type MenuItemFormValues = z.infer<typeof menuItemSchema>;
-
-// Define the props for the component
+// Define the props for the form component
 interface MenuItemFormProps {
   shopId: string;
-  initialData?: {
-    id?: string;
-    name: string;
-    description?: string;
-    price: number;
-    category: string;
-    image?: string;
-    imageKey?: string;
-    isAvailable: boolean;
-    allergens?: string[];
-    nutritionalInfo?: {
-      calories?: number;
-      fat?: number;
-      carbs?: number;
-      protein?: number;
-      ingredients?: string[];
-    };
-  };
-  onSubmit: (data: any) => void;
+  initialData?: any;
+  onSubmit: (data: any) => Promise<void>;
   isLoading?: boolean;
 }
+
+// Common allergens list
+const commonAllergens = [
+  { id: 'milk', label: 'Milk' },
+  { id: 'eggs', label: 'Eggs' },
+  { id: 'gluten', label: 'Gluten' },
+  { id: 'soy', label: 'Soy' },
+  { id: 'nuts', label: 'Tree Nuts' },
+  { id: 'peanuts', label: 'Peanuts' },
+  { id: 'fish', label: 'Fish' },
+  { id: 'shellfish', label: 'Shellfish' },
+];
+
+// Common categories
+const categories = [
+  'Coffee',
+  'Tea',
+  'Pastry',
+  'Sandwich',
+  'Breakfast',
+  'Lunch',
+  'Dessert',
+  'Snack',
+  'Other',
+];
 
 export function MenuItemForm({
   shopId,
@@ -76,71 +82,58 @@ export function MenuItemForm({
   onSubmit,
   isLoading = false,
 }: MenuItemFormProps) {
-  const [imageUrl, setImageUrl] = useState<string>(initialData?.image || '');
-  const [imageKey, setImageKey] = useState<string>(initialData?.imageKey || '');
+  const [imageUploading, setImageUploading] = useState(false);
 
   // Initialize the form with react-hook-form
-  const form = useForm<MenuItemFormValues>({
+  const form = useForm<z.infer<typeof menuItemSchema>>({
     resolver: zodResolver(menuItemSchema),
     defaultValues: {
+      id: initialData?.id || undefined,
+      shopId: shopId,
       name: initialData?.name || '',
       description: initialData?.description || '',
       price: initialData?.price || 0,
       category: initialData?.category || '',
-      isAvailable: initialData?.isAvailable ?? true,
-      allergens: initialData?.allergens?.join(', ') || '',
-      calories: initialData?.nutritionalInfo?.calories || undefined,
-      fat: initialData?.nutritionalInfo?.fat || undefined,
-      carbs: initialData?.nutritionalInfo?.carbs || undefined,
-      protein: initialData?.nutritionalInfo?.protein || undefined,
-      ingredients: initialData?.nutritionalInfo?.ingredients?.join(', ') || '',
+      imageKey: initialData?.imageKey || '',
+      isAvailable: initialData?.isAvailable !== false,
+      allergens: initialData?.allergens || [],
+      nutritionalInfo: {
+        calories: initialData?.nutritionalInfo?.calories || 0,
+        fat: initialData?.nutritionalInfo?.fat || 0,
+        carbs: initialData?.nutritionalInfo?.carbs || 0,
+        protein: initialData?.nutritionalInfo?.protein || 0,
+        ingredients: initialData?.nutritionalInfo?.ingredients || [],
+      },
     },
   });
 
   // Handle form submission
-  const handleSubmit = (values: MenuItemFormValues) => {
-    // Format the data for the API
-    const formattedData = {
-      ...values,
-      shopId,
-      image: imageUrl,
-      imageKey: imageKey,
-      allergens: values.allergens ? values.allergens.split(',').map(a => a.trim()) : [],
-      nutritionalInfo: {
-        calories: values.calories,
-        fat: values.fat,
-        carbs: values.carbs,
-        protein: values.protein,
-        ingredients: values.ingredients ? values.ingredients.split(',').map(i => i.trim()) : [],
-      },
-    };
-
-    // Remove the fields that were moved to nutritionalInfo
-    delete formattedData.calories;
-    delete formattedData.fat;
-    delete formattedData.carbs;
-    delete formattedData.protein;
-    delete formattedData.ingredients;
-
-    // If this is an update, include the ID
-    if (initialData?.id) {
-      formattedData.id = initialData.id;
-    }
-
-    onSubmit(formattedData);
+  const handleSubmit = async (values: z.infer<typeof menuItemSchema>) => {
+    await onSubmit(values);
   };
 
   // Handle image upload
-  const handleImageUploaded = (url: string, key: string) => {
-    setImageUrl(url);
-    setImageKey(key);
+  const handleImageUpload = async (file: File) => {
+    setImageUploading(true);
+    try {
+      const result = await uploadImageToS3(file, shopId);
+      form.setValue('imageKey', result.key);
+      return result.url;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      return null;
+    } finally {
+      setImageUploading(false);
+    }
   };
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Left column */}
           <div className="space-y-6">
+            {/* Name */}
             <FormField
               control={form.control}
               name="name"
@@ -148,13 +141,14 @@ export function MenuItemForm({
                 <FormItem>
                   <FormLabel>Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Cappuccino" {...field} />
+                    <Input placeholder="Item name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
+            {/* Description */}
             <FormField
               control={form.control}
               name="description"
@@ -163,8 +157,9 @@ export function MenuItemForm({
                   <FormLabel>Description</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="A rich, full-bodied espresso with steamed milk and a deep layer of foam"
+                      placeholder="Brief description of the item"
                       {...field}
+                      value={field.value || ''}
                     />
                   </FormControl>
                   <FormMessage />
@@ -172,72 +167,56 @@ export function MenuItemForm({
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Price</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a category" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Coffee">Coffee</SelectItem>
-                        <SelectItem value="Tea">Tea</SelectItem>
-                        <SelectItem value="Pastry">Pastry</SelectItem>
-                        <SelectItem value="Breakfast">Breakfast</SelectItem>
-                        <SelectItem value="Lunch">Lunch</SelectItem>
-                        <SelectItem value="Smoothie">Smoothie</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
+            {/* Price */}
             <FormField
               control={form.control}
-              name="allergens"
+              name="price"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Allergens</FormLabel>
+                  <FormLabel>Price ($)</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="Milk, Nuts, Gluten"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
                       {...field}
                     />
                   </FormControl>
-                  <FormDescription>
-                    Separate allergens with commas
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
+            {/* Category */}
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Availability */}
             <FormField
               control={form.control}
               name="isAvailable"
@@ -252,7 +231,7 @@ export function MenuItemForm({
                   <div className="space-y-1 leading-none">
                     <FormLabel>Available</FormLabel>
                     <FormDescription>
-                      This item will be shown on the menu
+                      This item will be shown as available on the menu
                     </FormDescription>
                   </div>
                 </FormItem>
@@ -260,102 +239,149 @@ export function MenuItemForm({
             />
           </div>
 
+          {/* Right column */}
           <div className="space-y-6">
+            {/* Image Upload */}
+            <FormField
+              control={form.control}
+              name="imageKey"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Image</FormLabel>
+                  <FormControl>
+                    <ImageUpload
+                      value={field.value || ''}
+                      onChange={(url) => field.onChange(url)}
+                      onUpload={handleImageUpload}
+                      isUploading={imageUploading}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Allergens */}
             <div>
-              <FormLabel>Item Image</FormLabel>
-              <ImageUpload
-                shopId={shopId}
-                initialImage={initialData?.image}
-                onImageUploaded={handleImageUploaded}
-                className="mt-2"
-              />
-            </div>
-
-            <div className="border rounded-md p-4 space-y-4">
-              <h3 className="font-medium">Nutritional Information</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="calories"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Calories</FormLabel>
-                      <FormControl>
-                        <Input type="number" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="fat"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Fat (g)</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.1" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="carbs"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Carbs (g)</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.1" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="protein"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Protein (g)</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.1" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormLabel className="mb-2 block">Allergens</FormLabel>
+              <div className="grid grid-cols-2 gap-2">
+                {commonAllergens.map((allergen) => (
+                  <FormField
+                    key={allergen.id}
+                    control={form.control}
+                    name="allergens"
+                    render={({ field }) => {
+                      return (
+                        <FormItem
+                          key={allergen.id}
+                          className="flex flex-row items-start space-x-3 space-y-0"
+                        >
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value?.includes(allergen.label)}
+                              onCheckedChange={(checked) => {
+                                const currentValues = field.value || [];
+                                return checked
+                                  ? field.onChange([...currentValues, allergen.label])
+                                  : field.onChange(
+                                      currentValues.filter(
+                                        (value) => value !== allergen.label
+                                      )
+                                    );
+                              }}
+                            />
+                          </FormControl>
+                          <FormLabel className="font-normal">
+                            {allergen.label}
+                          </FormLabel>
+                        </FormItem>
+                      );
+                    }}
+                  />
+                ))}
               </div>
-
-              <FormField
-                control={form.control}
-                name="ingredients"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ingredients</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Milk, Espresso, Water"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Separate ingredients with commas
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </div>
           </div>
         </div>
 
+        {/* Nutritional Info Section */}
+        <div className="border-t pt-6">
+          <h3 className="text-lg font-medium mb-4">Nutritional Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <FormField
+              control={form.control}
+              name="nutritionalInfo.calories"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Calories</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      {...field}
+                      value={field.value || ''}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="nutritionalInfo.fat"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Fat (g)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      {...field}
+                      value={field.value || ''}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="nutritionalInfo.carbs"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Carbs (g)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      {...field}
+                      value={field.value || ''}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="nutritionalInfo.protein"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Protein (g)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      {...field}
+                      value={field.value || ''}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
+
+        {/* Submit Button */}
         <div className="flex justify-end">
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" disabled={isLoading || imageUploading}>
             {isLoading ? 'Saving...' : initialData ? 'Update Item' : 'Add Item'}
           </Button>
         </div>

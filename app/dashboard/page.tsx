@@ -1,314 +1,400 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { 
-  Coffee, 
-  Award, 
-  ShoppingBag, 
-  User, 
-  LogOut, 
-  Settings,
-  CreditCard,
-  Gift,
-  ChevronRight,
-  Store
-} from 'lucide-react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import Link from 'next/link';
+import { Coffee, Ticket, Award, Star, Clock, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { auth, AuthUser } from '@/lib/auth';
-import { UserRole } from '@/lib/types';
+import { useAuth } from '@/lib/auth-context';
+import { UserRole } from '@/lib/permissions';
+import { useRouter } from 'next/navigation';
 
-// Mock user data
-const mockUserData = {
-  name: 'John Doe',
-  email: 'john@example.com',
-  points: 320,
-  stamps: 6,
-  totalStampsNeeded: 10,
-  favoriteItems: [
-    { name: 'Cappuccino', count: 12 },
-    { name: 'Blueberry Muffin', count: 8 },
-    { name: 'Latte', count: 5 },
-  ],
-  recentTransactions: [
-    { id: 'txn_1', date: '2025-03-15T10:30:00Z', amount: 12.50, items: 3 },
-    { id: 'txn_2', date: '2025-03-10T11:45:00Z', amount: 8.75, items: 2 },
-    { id: 'txn_3', date: '2025-03-05T09:15:00Z', amount: 15.25, items: 4 },
-  ],
-  availableRewards: [
-    { id: 'reward_1', name: 'Free Coffee', description: 'Any size coffee of your choice', pointsCost: 100, expires: '2025-04-15T00:00:00Z' },
-    { id: 'reward_2', name: 'Free Pastry', description: 'Any pastry of your choice', pointsCost: 150, expires: '2025-04-30T00:00:00Z' },
-  ],
-  shopName: 'Demo Coffee',
-};
+// Mock data interfaces
+interface ShopReward {
+  shopId: string;
+  shopName: string;
+  shopLogo?: string;
+  points: number;
+  stamps: {
+    cardId: string;
+    cardName: string;
+    currentStamps: number;
+    requiredStamps: number;
+  }[];
+  availableRewards: {
+    id: string;
+    name: string;
+    description: string;
+    pointsRequired: number;
+  }[];
+}
 
-export default function CustomerDashboard() {
+interface RecentActivity {
+  id: string;
+  type: 'stamp' | 'points' | 'redemption';
+  shopName: string;
+  shopLogo?: string;
+  description: string;
+  date: string;
+  amount?: number;
+}
+
+export default function CustomerDashboardPage() {
+  const { user, isAuthorized, isLoading } = useAuth();
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  
+  const [rewards, setRewards] = useState<ShopReward[]>([]);
+  const [activities, setActivities] = useState<RecentActivity[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
   useEffect(() => {
-    const checkAuth = async () => {
+    // Check authorization
+    if (!isLoading && !isAuthorized(UserRole.CUSTOMER)) {
+      router.push('/login');
+      return;
+    }
+
+    // Fetch customer rewards and activities - in a real app, this would be API calls
+    const fetchCustomerData = async () => {
       try {
-        const user = await auth.getCurrentUser();
-        if (!user) {
-          router.push('/login?redirect=/dashboard');
-          return;
-        }
+        // Mock data - replace with actual API calls
+        const mockRewards: ShopReward[] = [
+          {
+            shopId: '1',
+            shopName: 'Urban Beans',
+            shopLogo: '/placeholder.svg',
+            points: 85,
+            stamps: [
+              {
+                cardId: '1',
+                cardName: 'Coffee Lovers Card',
+                currentStamps: 7,
+                requiredStamps: 10,
+              },
+              {
+                cardId: '2',
+                cardName: 'Espresso Enthusiast',
+                currentStamps: 3,
+                requiredStamps: 8,
+              },
+            ],
+            availableRewards: [
+              {
+                id: '1',
+                name: 'Free Coffee',
+                description: 'Any size coffee of your choice',
+                pointsRequired: 100,
+              },
+              {
+                id: '2',
+                name: 'Pastry Discount',
+                description: '50% off any pastry',
+                pointsRequired: 75,
+              },
+            ],
+          },
+          {
+            shopId: '2',
+            shopName: 'Espresso Haven',
+            shopLogo: '/placeholder.svg',
+            points: 120,
+            stamps: [
+              {
+                cardId: '3',
+                cardName: 'Specialty Drinks',
+                currentStamps: 4,
+                requiredStamps: 6,
+              },
+            ],
+            availableRewards: [
+              {
+                id: '3',
+                name: 'Free Specialty Drink',
+                description: 'Any specialty drink on our menu',
+                pointsRequired: 150,
+              },
+              {
+                id: '4',
+                name: 'Breakfast Sandwich',
+                description: 'Free breakfast sandwich',
+                pointsRequired: 200,
+              },
+            ],
+          },
+        ];
         
-        setCurrentUser(user);
-        setIsLoading(false);
+        const mockActivities: RecentActivity[] = [
+          {
+            id: '1',
+            type: 'stamp',
+            shopName: 'Urban Beans',
+            shopLogo: '/placeholder.svg',
+            description: 'Earned a stamp on Coffee Lovers Card',
+            date: '2025-03-24T14:30:00Z',
+          },
+          {
+            id: '2',
+            type: 'points',
+            shopName: 'Espresso Haven',
+            shopLogo: '/placeholder.svg',
+            description: 'Earned points for purchase',
+            date: '2025-03-23T10:15:00Z',
+            amount: 25,
+          },
+          {
+            id: '3',
+            type: 'redemption',
+            shopName: 'Urban Beans',
+            shopLogo: '/placeholder.svg',
+            description: 'Redeemed Free Pastry reward',
+            date: '2025-03-20T16:45:00Z',
+          },
+          {
+            id: '4',
+            type: 'points',
+            shopName: 'Espresso Haven',
+            shopLogo: '/placeholder.svg',
+            description: 'Earned points for purchase',
+            date: '2025-03-18T09:20:00Z',
+            amount: 15,
+          },
+        ];
         
-        // Redirect based on role
-        if (user.role === UserRole.SUPER_ADMIN) {
-          router.push('/super-admin');
-        } else if (user.role === UserRole.SHOP_ADMIN) {
-          router.push('/shop-admin');
-        }
+        setRewards(mockRewards);
+        setActivities(activities => [...mockActivities].sort((a, b) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+        ));
+        setIsLoadingData(false);
       } catch (error) {
-        console.error('Authentication error:', error);
-        router.push('/login?redirect=/dashboard');
+        console.error('Error fetching customer data:', error);
+        setIsLoadingData(false);
       }
     };
 
-    checkAuth();
-  }, [router]);
+    fetchCustomerData();
+  }, [isAuthorized, isLoading, router]);
 
-  const handleLogout = async () => {
-    await auth.signOut();
-    router.push('/login');
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  // If user is not a customer, show loading while redirecting
-  if (currentUser && currentUser.role !== UserRole.CUSTOMER) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <div className="flex justify-center items-center h-screen">Loading...</div>;
   }
 
   return (
-    <div className="container px-4 py-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+    <div className="container mx-auto py-8 px-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-3xl font-bold">{mockUserData.name}</h1>
-          <p className="text-muted-foreground">Welcome to {mockUserData.shopName}</p>
+          <h1 className="text-3xl font-bold">Welcome, {user?.firstName}!</h1>
+          <p className="text-muted-foreground">Track your rewards and find new coffee shops.</p>
         </div>
-        <div className="flex items-center gap-2 mt-4 md:mt-0">
-          <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/profile')}>
-            <User className="mr-2 h-4 w-4" />
-            Profile
+        <Link href="/shops">
+          <Button>
+            <Coffee className="mr-2 h-4 w-4" />
+            Discover Coffee Shops
           </Button>
-          <Button variant="outline" size="sm" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
-        </div>
+        </Link>
       </div>
-      
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Loyalty Status Card */}
-        <Card className="col-span-full md:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Award className="mr-2 h-5 w-5" />
-              Loyalty Status
-            </CardTitle>
-            <CardDescription>Your current rewards progress</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-sm font-medium">Points Balance</span>
-                <Badge variant="secondary">{mockUserData.points} points</Badge>
-              </div>
-              <div className="h-4 bg-muted rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-primary" 
-                  style={{ width: `${Math.min(100, (mockUserData.points / 500) * 100)}%` }}
-                ></div>
-              </div>
-              <div className="flex justify-between mt-1 text-xs text-muted-foreground">
-                <span>0</span>
-                <span>500</span>
-              </div>
-            </div>
-            
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-sm font-medium">Stamp Card</span>
-                <span className="text-sm">{mockUserData.stamps} / {mockUserData.totalStampsNeeded}</span>
-              </div>
-              <div className="grid grid-cols-10 gap-1">
-                {Array.from({ length: mockUserData.totalStampsNeeded }).map((_, i) => (
-                  <div 
-                    key={i} 
-                    className={`aspect-square rounded-full flex items-center justify-center text-xs ${
-                      i < mockUserData.stamps ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                    }`}
-                  >
-                    {i < mockUserData.stamps ? '✓' : ''}
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                {mockUserData.totalStampsNeeded - mockUserData.stamps} more stamps for a free coffee
-              </p>
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button variant="outline" className="w-full" onClick={() => router.push('/dashboard/rewards')}>
-              <Gift className="mr-2 h-4 w-4" />
-              View Available Rewards
-            </Button>
-          </CardFooter>
-        </Card>
-        
-        {/* Available Rewards Card */}
-        <Card className="col-span-full md:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Gift className="mr-2 h-5 w-5" />
-              Available Rewards
-            </CardTitle>
-            <CardDescription>Rewards you can redeem</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {mockUserData.availableRewards.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  No rewards available yet
-                </div>
-              ) : (
-                mockUserData.availableRewards.map(reward => {
-                  const canRedeem = mockUserData.points >= reward.pointsCost;
-                  const expiryDate = new Date(reward.expires);
-                  const formattedExpiry = expiryDate.toLocaleDateString();
-                  
-                  return (
-                    <div 
-                      key={reward.id} 
-                      className={`p-4 border rounded-md ${canRedeem ? 'border-primary/50' : ''}`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-medium">{reward.name}</h3>
-                          <p className="text-sm text-muted-foreground">{reward.description}</p>
-                          <p className="text-xs text-muted-foreground mt-1">Expires: {formattedExpiry}</p>
-                        </div>
-                        <Badge>{reward.pointsCost} points</Badge>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <h2 className="text-xl font-semibold mb-4">Your Rewards</h2>
+          
+          {isLoadingData ? (
+            <div className="flex justify-center items-center h-64">Loading rewards...</div>
+          ) : rewards.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-12">
+                <Coffee className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-4 text-lg font-medium">No rewards yet</h3>
+                <p className="mt-1 text-gray-500">Join a coffee shop's loyalty program to start earning rewards.</p>
+                <Button className="mt-4" asChild>
+                  <Link href="/shops">
+                    Find Coffee Shops
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              {rewards.map((shopReward) => (
+                <Card key={shopReward.shopId}>
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                        {shopReward.shopLogo ? (
+                          <img 
+                            src={shopReward.shopLogo} 
+                            alt={shopReward.shopName} 
+                            className="h-10 w-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Coffee className="h-5 w-5 text-primary" />
+                          </div>
+                        )}
+                        <CardTitle>{shopReward.shopName}</CardTitle>
                       </div>
-                      <Button 
-                        variant={canRedeem ? "default" : "outline"} 
-                        size="sm" 
-                        className="w-full mt-3"
-                        disabled={!canRedeem}
-                      >
-                        {canRedeem ? 'Redeem Reward' : `Need ${reward.pointsCost - mockUserData.points} more points`}
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/shops/${shopReward.shopId}`}>
+                          Visit Shop
+                        </Link>
                       </Button>
                     </div>
-                  );
-                })
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        
-        {/* Recent Transactions Card */}
-        <Card className="col-span-full md:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <ShoppingBag className="mr-2 h-5 w-5" />
-              Recent Transactions
-            </CardTitle>
-            <CardDescription>Your recent purchases</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {mockUserData.recentTransactions.map(transaction => {
-                const date = new Date(transaction.date);
-                const formattedDate = date.toLocaleDateString();
-                
-                return (
-                  <div key={transaction.id} className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">${transaction.amount.toFixed(2)}</p>
-                      <p className="text-sm text-muted-foreground">{formattedDate} • {transaction.items} items</p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="mb-4">
+                      <div className="flex justify-between items-center mb-1">
+                        <p className="text-sm font-medium">Points Balance</p>
+                        <p className="text-sm font-bold">{shopReward.points} points</p>
+                      </div>
+                      <Progress value={shopReward.points % 100} className="h-2" />
                     </div>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button variant="outline" className="w-full" onClick={() => router.push('/dashboard/transactions')}>
-              <CreditCard className="mr-2 h-4 w-4" />
-              View All Transactions
-            </Button>
-          </CardFooter>
-        </Card>
-        
-        {/* Favorite Items Card */}
-        <Card className="col-span-full">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Coffee className="mr-2 h-5 w-5" />
-              Your Favorites
-            </CardTitle>
-            <CardDescription>Items you order most frequently</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {mockUserData.favoriteItems.map((item, index) => (
-                <div key={index} className="flex items-center p-4 border rounded-md">
-                  <div className="bg-primary/10 p-3 rounded-full mr-3">
-                    <Coffee className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-medium">{item.name}</p>
-                    <p className="text-sm text-muted-foreground">Ordered {item.count} times</p>
-                  </div>
-                </div>
+                    
+                    {shopReward.stamps.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-sm font-medium mb-2">Stamp Cards</p>
+                        <div className="space-y-3">
+                          {shopReward.stamps.map((stampCard) => (
+                            <div key={stampCard.cardId} className="bg-muted/50 p-3 rounded-md">
+                              <div className="flex justify-between items-center mb-1">
+                                <p className="text-sm">{stampCard.cardName}</p>
+                                <p className="text-sm font-bold">{stampCard.currentStamps}/{stampCard.requiredStamps}</p>
+                              </div>
+                              <div className="flex gap-1">
+                                {Array.from({ length: stampCard.requiredStamps }).map((_, i) => (
+                                  <div 
+                                    key={i}
+                                    className={`h-6 w-6 rounded-full flex items-center justify-center ${
+                                      i < stampCard.currentStamps 
+                                        ? 'bg-primary text-primary-foreground' 
+                                        : 'bg-muted border border-border'
+                                    }`}
+                                  >
+                                    {i < stampCard.currentStamps && <Star className="h-3 w-3" />}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {shopReward.availableRewards.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium mb-2">Available Rewards</p>
+                        <div className="space-y-2">
+                          {shopReward.availableRewards.map((reward) => (
+                            <div key={reward.id} className="flex justify-between items-center p-2 rounded-md hover:bg-muted/50">
+                              <div>
+                                <p className="text-sm font-medium">{reward.name}</p>
+                                <p className="text-xs text-muted-foreground">{reward.description}</p>
+                              </div>
+                              <div className="flex items-center">
+                                <span className="text-sm font-bold mr-2">{reward.pointsRequired} pts</span>
+                                <Button variant="outline" size="sm" disabled={shopReward.points < reward.pointsRequired}>
+                                  Redeem
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </div>
         
-        {/* Find Shops Card */}
-        <Card className="col-span-full">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Store className="mr-2 h-5 w-5" />
-              Find Coffee Shops
-            </CardTitle>
-            <CardDescription>Discover coffee shops near you</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[200px] bg-muted/20 rounded-md flex items-center justify-center">
-              <p className="text-muted-foreground">Map will be displayed here</p>
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button variant="outline" className="w-full">
-              View All Locations
-            </Button>
-          </CardFooter>
-        </Card>
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
+          
+          {isLoadingData ? (
+            <div className="flex justify-center items-center h-64">Loading activity...</div>
+          ) : activities.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-12">
+                <Clock className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-4 text-lg font-medium">No activity yet</h3>
+                <p className="mt-1 text-gray-500">Your recent reward activity will appear here.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                <div className="divide-y">
+                  {activities.map((activity) => (
+                    <div key={activity.id} className="p-4 flex items-start gap-3">
+                      <div className={`rounded-full p-2 ${
+                        activity.type === 'stamp' ? 'bg-blue-100 text-blue-600' :
+                        activity.type === 'points' ? 'bg-green-100 text-green-600' :
+                        'bg-amber-100 text-amber-600'
+                      }`}>
+                        {activity.type === 'stamp' ? (
+                          <Ticket className="h-4 w-4" />
+                        ) : activity.type === 'points' ? (
+                          <Award className="h-4 w-4" />
+                        ) : (
+                          <Star className="h-4 w-4" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="text-sm font-medium">{activity.description}</p>
+                            <p className="text-xs text-muted-foreground">{activity.shopName}</p>
+                          </div>
+                          {activity.type === 'points' && activity.amount && (
+                            <span className="text-sm font-bold text-green-600">+{activity.amount}</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">{formatDate(activity.date)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          
+          <div className="mt-6">
+            <h2 className="text-xl font-semibold mb-4">Favorite Shops</h2>
+            <Card>
+              <CardContent className="p-0">
+                <Link href="/shops/1" className="flex items-center p-4 hover:bg-muted/50">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center mr-3">
+                    <Coffee className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium">Urban Beans</p>
+                    <p className="text-sm text-muted-foreground">Seattle, WA</p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                </Link>
+                <Link href="/shops/2" className="flex items-center p-4 hover:bg-muted/50 border-t">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center mr-3">
+                    <Coffee className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium">Espresso Haven</p>
+                    <p className="text-sm text-muted-foreground">Portland, OR</p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

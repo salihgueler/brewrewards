@@ -1,17 +1,18 @@
 # BrewRewards
 
-BrewRewards is a comprehensive loyalty and rewards platform designed specifically for coffee shops. It enables coffee shops to create digital loyalty programs, manage rewards, and engage with their customers through a modern, user-friendly interface.
+BrewRewards is a comprehensive multi-tenant loyalty and rewards platform designed specifically for coffee shops. It enables coffee shops to create digital loyalty programs, manage rewards, and engage with their customers through a modern, user-friendly interface.
 
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
+- [Multi-Tenant Design](#multi-tenant-design)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
 - [Quick Demo Setup](#quick-demo-setup)
 - [Project Structure](#project-structure)
 - [Infrastructure](#infrastructure)
-- [Authentication](#authentication)
+- [Authentication & Authorization](#authentication--authorization)
 - [API](#api)
 - [Development](#development)
 - [Deployment](#deployment)
@@ -53,7 +54,37 @@ BrewRewards is a comprehensive loyalty and rewards platform designed specificall
 
 BrewRewards uses a serverless architecture built on AWS services. The frontend is a Next.js application hosted on Vercel, which communicates with AWS AppSync GraphQL API. Authentication is handled by Amazon Cognito, data is stored in DynamoDB tables, and images are stored in Amazon S3.
 
+## Multi-Tenant Design
+
+BrewRewards is built as a multi-tenant application with three distinct user roles:
+
+### Super Admins
+- Platform administrators who can manage all coffee shops
+- Have access to platform-wide analytics and user management
+- Can create, read, update, and delete any coffee shop and their information
+
+### Shop Admins
+- Coffee shop owners/managers who can manage their own shop
+- Can create, read, update, and delete their shop's menu items
+- Can define and manage loyalty programs (stamp cards and point-based rewards)
+- Have access to customer insights for their shop only
+
+### Customers
+- End users who can join multiple coffee shops' loyalty programs
+- Can earn and redeem rewards across different shops
+- Can view coffee shop menus and track their reward progress
+- Cannot modify any shop information
+
+This multi-tenant architecture ensures proper data isolation while allowing customers to interact with multiple shops through a single platform.
+
 ## Features
+
+### For Super Admins
+
+- **Platform Management**: Oversee all coffee shops in the network
+- **Shop Management**: Create, update, and delete coffee shops
+- **Analytics Dashboard**: View platform-wide statistics and performance metrics
+- **User Management**: Manage all users across the platform
 
 ### For Coffee Shop Owners
 
@@ -69,7 +100,7 @@ BrewRewards uses a serverless architecture built on AWS services. The frontend i
 - **Reward Redemption**: Redeem earned rewards at participating shops
 - **Shop Discovery**: Find coffee shops in the BrewRewards network
 - **Favorites**: Save favorite menu items and shops
-- **Order History**: View past orders and rewards
+- **Activity History**: View past orders and rewards
 
 ## Tech Stack
 
@@ -107,13 +138,16 @@ This script will:
 
 Once the application is running, you can use these demo credentials:
 
+- **Super Admin**: superadmin@example.com / Password123
 - **Shop Admin**: admin@example.com / Password123
 - **Customer**: customer@example.com / Password123
 
 ### Demo URLs
 
-- **Shop Customer View**: http://localhost:3000/shops/demo
+- **Super Admin Portal**: http://localhost:3000/super-admin
 - **Shop Admin Portal**: http://localhost:3000/shop-admin
+- **Customer Dashboard**: http://localhost:3000/dashboard
+- **Shop Customer View**: http://localhost:3000/shops/demo
 
 ### Requirements
 
@@ -180,6 +214,10 @@ brewrewards/
 │   ├── lib/                # Stack definitions
 │   └── graphql/            # GraphQL schema
 ├── lib/                    # Utility functions and shared code
+│   ├── auth.ts             # Authentication utilities
+│   ├── auth-context.tsx    # Authentication context provider
+│   ├── permissions.ts      # Role-based permissions system
+│   └── aws-config.ts       # AWS configuration
 ├── public/                 # Static assets
 └── styles/                 # Global styles
 ```
@@ -213,7 +251,7 @@ The GraphQL API provides a unified interface for all data operations. It include
 - Resolvers for all operations
 - Image upload functionality via presigned URLs
 
-## Authentication
+## Authentication & Authorization
 
 Authentication is handled by Amazon Cognito with the following user groups:
 
@@ -226,6 +264,12 @@ The authentication flow uses direct Cognito integration with:
 - Password-based authentication
 - Password reset functionality
 - Custom attributes for user roles and shop associations
+
+Authorization is implemented through a role-based permission system that:
+- Defines specific permissions for each user role
+- Restricts access to resources based on user role
+- Ensures shop admins can only access their own shop's data
+- Allows super admins to access all data across the platform
 
 ## API
 

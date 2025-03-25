@@ -3,12 +3,12 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Coffee, LayoutDashboard, Store, Users, Award, Settings, LogOut } from 'lucide-react';
+import { Coffee, LayoutDashboard, Store, Star, Clock, Settings, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-context';
 import { UserRole } from '@/lib/permissions';
 
-export default function SuperAdminLayout({
+export default function CustomerDashboardLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -18,41 +18,46 @@ export default function SuperAdminLayout({
   const pathname = usePathname();
 
   useEffect(() => {
-    // Redirect if not a super admin
-    if (!isLoading && (!user || user.role !== UserRole.SUPER_ADMIN)) {
-      router.push('/login?userType=super-admin');
+    // Redirect if not a customer
+    if (!isLoading && (!user || user.role !== UserRole.CUSTOMER)) {
+      router.push('/login');
     }
   }, [user, isLoading, router]);
 
   const handleSignOut = async () => {
     await logout();
-    router.push('/login?userType=super-admin');
+    router.push('/login');
   };
 
   const navItems = [
     {
       name: 'Dashboard',
-      href: '/super-admin',
+      href: '/dashboard',
       icon: <LayoutDashboard className="h-5 w-5" />,
     },
     {
       name: 'Coffee Shops',
-      href: '/super-admin/shops',
+      href: '/shops',
       icon: <Store className="h-5 w-5" />,
     },
     {
-      name: 'Users',
-      href: '/super-admin/users',
-      icon: <Users className="h-5 w-5" />,
+      name: 'My Rewards',
+      href: '/dashboard/rewards',
+      icon: <Star className="h-5 w-5" />,
     },
     {
-      name: 'Loyalty Programs',
-      href: '/super-admin/loyalty-programs',
-      icon: <Award className="h-5 w-5" />,
+      name: 'Activity',
+      href: '/dashboard/activity',
+      icon: <Clock className="h-5 w-5" />,
+    },
+    {
+      name: 'Profile',
+      href: '/dashboard/profile',
+      icon: <User className="h-5 w-5" />,
     },
     {
       name: 'Settings',
-      href: '/super-admin/settings',
+      href: '/dashboard/settings',
       icon: <Settings className="h-5 w-5" />,
     },
   ];
@@ -66,11 +71,11 @@ export default function SuperAdminLayout({
       {/* Sidebar */}
       <div className="hidden md:flex flex-col w-64 border-r">
         <div className="p-4 border-b">
-          <Link href="/super-admin" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <Coffee className="h-6 w-6" />
             <span className="font-bold text-xl">BrewRewards</span>
           </Link>
-          <div className="mt-2 text-sm text-muted-foreground">Super Admin Portal</div>
+          <div className="mt-2 text-sm text-muted-foreground">Customer Dashboard</div>
         </div>
         <nav className="flex-1 p-4 space-y-1">
           {navItems.map((item) => {
@@ -112,7 +117,7 @@ export default function SuperAdminLayout({
       {/* Mobile header */}
       <div className="flex flex-col flex-1">
         <header className="md:hidden flex items-center justify-between p-4 border-b">
-          <Link href="/super-admin" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <Coffee className="h-6 w-6" />
             <span className="font-bold">BrewRewards</span>
           </Link>
