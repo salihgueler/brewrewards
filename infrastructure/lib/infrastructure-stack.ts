@@ -11,6 +11,8 @@ import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as cloudfront_origins from 'aws-cdk-lib/aws-cloudfront-origins';
 
 export class BrewRewardsStack extends cdk.Stack {
   public readonly userPool: cognito.UserPool;
@@ -23,15 +25,23 @@ export class BrewRewardsStack extends cdk.Stack {
   public readonly menuTable: dynamodb.Table;
   public readonly favoritesTable: dynamodb.Table;
   public readonly imagesBucket: s3.Bucket;
+  public readonly imagesCdn: cloudfront.Distribution;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // S3 Bucket for storing menu item images
+    // S3 Bucket for storing menu item images - with enhanced security
     this.imagesBucket = new s3.Bucket(this, 'MenuItemImagesBucket', {
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS,
-      removalPolicy: cdk.RemovalPolicy.DESTROY, // For development only
-      autoDeleteObjects: true, // For development only
+      // Block all public access
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      // Enforce encryption
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      // Enforce SSL
+      enforceSSL: true,
+      // For development only - in production, consider RETAIN
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      // CORS configuration for presigned URL uploads
       cors: [
         {
           allowedMethods: [
@@ -39,8 +49,17 @@ export class BrewRewardsStack extends cdk.Stack {
             s3.HttpMethods.POST,
             s3.HttpMethods.PUT,
           ],
-          allowedOrigins: ['*'], // In production, restrict to your domains
-          allowedHeaders: ['*'],
+          // Restrict to your application domains in production
+          allowedOrigins: ['http://localhost:3000', 'https://*.brewrewards.com'],
+          allowedHeaders: [
+            'Authorization',
+            'Content-Type',
+            'Content-Length',
+            'Content-Disposition',
+            'x-amz-date',
+            'x-amz-content-sha256',
+            'x-amz-security-token',
+          ],
           exposedHeaders: [
             'x-amz-server-side-encryption',
             'x-amz-request-id',
@@ -52,14 +71,65 @@ export class BrewRewardsStack extends cdk.Stack {
       ],
     });
 
-    // Grant public read access to the bucket
-    this.imagesBucket.addToResourcePolicy(
-      new iam.PolicyStatement({
-        actions: ['s3:GetObject'],
-        resources: [this.imagesBucket.arnForObjects('*')],
-        principals: [new iam.AnyPrincipal()],
-      })
-    );
+    // CloudFront Origin Access Identity for S3
+    const originAccessIdentity = new cloudfront.OriginAccessIdentity(this, 'ImagesBucketOAI', {
+      comment: 'OAI for BrewRewards images bucket',
+    });
+
+    // Grant CloudFront OAI read access to the bucket
+    this.imagesBucket.grantRead(originAccessIdentity);
+
+    // Create a custom response headers policy
+    const securityHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, 'SecurityHeadersPolicy', {
+      responseHeadersPolicyName: 'SecurityHeadersPolicy',
+      securityHeadersBehavior: {
+        contentSecurityPolicy: {
+          contentSecurityPolicy: "default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self';",
+          override: true,
+        },
+        strictTransportSecurity: {
+          accessControlMaxAge: cdk.Duration.days(2 * 365),
+          includeSubdomains: true,
+          preload: true,
+          override: true,
+        },
+        contentTypeOptions: {
+          override: true,
+        },
+        referrerPolicy: {
+          referrerPolicy: cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+          override: true,
+        },
+        xssProtection: {
+          protection: true,
+          modeBlock: true,
+          override: true,
+        },
+        frameOptions: {
+          frameOption: cloudfront.HeadersFrameOption.DENY,
+          override: true,
+        },
+      },
+    });
+
+    // CloudFront Distribution for secure image delivery
+    this.imagesCdn = new cloudfront.Distribution(this, 'ImagesCDN', {
+      defaultBehavior: {
+        origin: new cloudfront_origins.S3Origin(this.imagesBucket, {
+          originAccessIdentity,
+        }),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+        cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        originRequestPolicy: cloudfront.OriginRequestPolicy.CORS_S3_ORIGIN,
+        responseHeadersPolicy: securityHeadersPolicy,
+      },
+      // Enable HTTPS
+      minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
+      // Enable logging (optional)
+      enableLogging: true,
+    });
 
     // DynamoDB Tables
     this.shopsTable = new dynamodb.Table(this, 'ShopsTable', {
