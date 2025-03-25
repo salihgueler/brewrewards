@@ -4,6 +4,7 @@ import {
   CognitoUser,
   AuthenticationDetails,
   CognitoUserSession,
+  CognitoIdToken,
 } from 'amazon-cognito-identity-js';
 import { awsConfig } from './aws-config';
 
@@ -32,12 +33,33 @@ const cognitoUserToAuthUser = (
   session: CognitoUserSession,
   attributes: { [key: string]: any }
 ): AuthUser => {
+  // Get the ID token to extract user groups
+  const idToken = session.getIdToken();
+  const payload = idToken.decodePayload();
+  
+  // Extract user groups from the token payload
+  const cognitoGroups = payload['cognito:groups'] || [];
+  
+  // Map Cognito groups to application roles
+  let role: 'CUSTOMER' | 'SHOP_ADMIN' | 'SUPER_ADMIN' = 'CUSTOMER'; // Default role
+  
+  if (Array.isArray(cognitoGroups)) {
+    if (cognitoGroups.includes('SuperAdmins')) {
+      role = 'SUPER_ADMIN';
+    } else if (cognitoGroups.includes('ShopAdmins')) {
+      role = 'SHOP_ADMIN';
+    }
+  }
+  
+  console.log('User groups from Cognito:', cognitoGroups);
+  console.log('Mapped role:', role);
+  
   return {
     id: attributes.sub || '',
     email: attributes.email || '',
     firstName: attributes.given_name || '',
     lastName: attributes.family_name || '',
-    role: attributes['custom:userRole'] || 'CUSTOMER',
+    role: role,
     shopId: attributes['custom:shopId'] || undefined,
     token: session.getIdToken().getJwtToken(),
   };
