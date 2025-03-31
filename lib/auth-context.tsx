@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserRole } from './permissions';
-import { AuthUser, loginUser, logoutUser, getAuthenticatedUser, completeNewPassword } from './auth';
+import { AuthUser, auth } from './auth';
 import { useRouter } from 'next/navigation';
 import { configureAmplify } from './amplify-config';
 
@@ -14,7 +14,7 @@ if (typeof window !== 'undefined') {
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ newPasswordRequired: boolean; session: any }>;
+  login: (email: string, password: string) => Promise<{ newPasswordRequired: boolean; session?: any; cognitoUser?: any }>;
   completeNewPasswordChallenge: (session: any, newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
   isAuthorized: (role: UserRole) => boolean;
@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Add a small delay to ensure Amplify is fully initialized
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        const currentUser = await getAuthenticatedUser();
+        const currentUser = await auth.getCurrentUser();
         console.log('User loaded:', currentUser ? 'Success' : 'No user found');
         setUser(currentUser);
       } catch (error) {
@@ -52,15 +52,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       console.log('Starting login process...');
-      const { user, newPasswordRequired, session } = await loginUser(email, password);
+      const user = await auth.signIn(email, password);
       
+      // Check if the response includes newPasswordRequired
+      const newPasswordRequired = user && user.newPasswordRequired === true;
       console.log('Login response:', { newPasswordRequired, user: user ? 'User exists' : 'No user' });
       
       if (!newPasswordRequired) {
         setUser(user);
       }
       
-      return { newPasswordRequired, session };
+      return { 
+        newPasswordRequired: newPasswordRequired || false,
+        session: user.session,
+        cognitoUser: user.cognitoUser
+      };
     } catch (error) {
       console.error('Error during login:', error);
       throw error;
@@ -69,7 +75,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const completeNewPasswordChallenge = async (session: any, newPassword: string) => {
     try {
-      const user = await completeNewPassword(session, newPassword);
+      if (!session || !session.cognitoUser) {
+        throw new Error('Invalid session data for password challenge');
+      }
+      
+      const user = await auth.completeNewPasswordChallenge(
+        session.username || session.email,
+        newPassword,
+        {},
+        session.cognitoUser
+      );
+      
       setUser(user);
     } catch (error) {
       console.error('Error completing new password challenge:', error);
@@ -79,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await logoutUser();
+      await auth.signOut();
       setUser(null);
       router.push('/login');
     } catch (error) {

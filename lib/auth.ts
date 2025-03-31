@@ -17,6 +17,9 @@ export interface AuthUser {
   role: 'CUSTOMER' | 'SHOP_ADMIN' | 'SUPER_ADMIN';
   shopId?: string;
   token?: string;
+  newPasswordRequired?: boolean;
+  session?: any;
+  cognitoUser?: any;
 }
 
 // Initialize the Cognito User Pool
@@ -99,6 +102,9 @@ export const auth = {
             });
             
             const user = cognitoUserToAuthUser(cognitoUser, session, userAttributes);
+            // Add the cognitoUser object to the response for potential new password challenge
+            user.cognitoUser = cognitoUser;
+            user.session = session;
             resolve(user);
           });
         },
@@ -109,6 +115,20 @@ export const auth = {
           }
           reject(err);
         },
+        newPasswordRequired: function(userAttributes, requiredAttributes) {
+          // User needs to set a new password
+          const user: AuthUser = {
+            id: '',
+            email: email,
+            firstName: userAttributes.given_name || '',
+            lastName: userAttributes.family_name || '',
+            role: 'CUSTOMER', // Default role until we get the actual role
+            newPasswordRequired: true,
+            cognitoUser: cognitoUser,
+            session: { userAttributes, requiredAttributes, email }
+          };
+          resolve(user);
+        }
       });
     });
   },
@@ -303,4 +323,48 @@ export const auth = {
       });
     });
   },
+  
+  // Complete new password challenge
+  completeNewPasswordChallenge: async (
+    username: string,
+    newPassword: string,
+    userAttributes: { [key: string]: string } = {},
+    cognitoUser?: CognitoUser
+  ): Promise<AuthUser> => {
+    if (!awsConfig.userPoolId || !awsConfig.userPoolWebClientId) {
+      throw new Error('Cognito is not configured. Please set up AWS Cognito credentials.');
+    }
+    
+    return new Promise((resolve, reject) => {
+      if (!cognitoUser) {
+        const userPool = getUserPool();
+        cognitoUser = new CognitoUser({
+          Username: username,
+          Pool: userPool,
+        });
+      }
+      
+      cognitoUser.completeNewPasswordChallenge(newPassword, userAttributes, {
+        onSuccess: (session) => {
+          cognitoUser!.getUserAttributes((err, attributes) => {
+            if (err) {
+              reject(err);
+              return;
+            }
+            
+            const userAttrs: { [key: string]: any } = {};
+            attributes?.forEach(attr => {
+              userAttrs[attr.getName()] = attr.getValue();
+            });
+            
+            const user = cognitoUserToAuthUser(cognitoUser!, session, userAttrs);
+            resolve(user);
+          });
+        },
+        onFailure: (err) => {
+          reject(err);
+        },
+      });
+    });
+  }
 };
