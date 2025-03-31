@@ -439,3 +439,123 @@ export class BrewRewardsStack extends cdk.Stack {
     });
   }
 }
+    // Add resolvers for Transaction operations
+    this.api.createResolver('GetTransaction', 'Query', 'getTransaction', 'AMAZON_DYNAMODB', {
+      dataSource: this.transactionsTable.tableName,
+      requestMappingTemplate: appsync.MappingTemplate.dynamoDbGetItem('id', 'shopId'),
+      responseMappingTemplate: appsync.MappingTemplate.dynamoDbResultItem(),
+    });
+
+    this.api.createResolver('ListTransactionsByShop', 'Query', 'listTransactionsByShop', 'AMAZON_DYNAMODB', {
+      dataSource: this.transactionsTable.tableName,
+      requestMappingTemplate: appsync.MappingTemplate.fromString(`
+        {
+          "version": "2017-02-28",
+          "operation": "Query",
+          "query": {
+            "expression": "shopId = :shopId",
+            "expressionValues": {
+              ":shopId": $util.dynamodb.toDynamoDBJson($ctx.args.shopId)
+            }
+          },
+          "limit": $util.defaultIfNull($ctx.args.limit, 20),
+          "nextToken": $util.toJson($util.defaultIfNull($ctx.args.nextToken, null))
+        }
+      `),
+      responseMappingTemplate: appsync.MappingTemplate.dynamoDbResultItem(),
+    });
+
+    this.api.createResolver('ListTransactionsByUser', 'Query', 'listTransactionsByUser', 'AMAZON_DYNAMODB', {
+      dataSource: this.transactionsTable.tableName,
+      requestMappingTemplate: appsync.MappingTemplate.fromString(`
+        {
+          "version": "2017-02-28",
+          "operation": "Query",
+          "index": "UserTransactionsIndex",
+          "query": {
+            "expression": "GSI1-PK = :userId",
+            "expressionValues": {
+              ":userId": $util.dynamodb.toDynamoDBJson("USER#" + $ctx.args.userId)
+            }
+          },
+          "limit": $util.defaultIfNull($ctx.args.limit, 20),
+          "nextToken": $util.toJson($util.defaultIfNull($ctx.args.nextToken, null))
+        }
+      `),
+      responseMappingTemplate: appsync.MappingTemplate.dynamoDbResultItem(),
+    });
+
+    this.api.createResolver('CreateTransaction', 'Mutation', 'createTransaction', 'AMAZON_DYNAMODB', {
+      dataSource: this.transactionsTable.tableName,
+      requestMappingTemplate: appsync.MappingTemplate.fromString(`
+        #set($id = $util.autoId())
+        {
+          "version": "2017-02-28",
+          "operation": "PutItem",
+          "key": {
+            "id": $util.dynamodb.toDynamoDBJson($id),
+            "shopId": $util.dynamodb.toDynamoDBJson($ctx.args.input.shopId)
+          },
+          "attributeValues": {
+            "userId": $util.dynamodb.toDynamoDBJson($ctx.args.input.userId),
+            "amount": $util.dynamodb.toDynamoDBJson($ctx.args.input.amount),
+            "points": $util.dynamodb.toDynamoDBJson($ctx.args.input.points),
+            #if($ctx.args.input.stamps)
+              "stamps": $util.dynamodb.toDynamoDBJson($ctx.args.input.stamps),
+            #end
+            "type": $util.dynamodb.toDynamoDBJson($ctx.args.input.type),
+            "status": $util.dynamodb.toDynamoDBJson("COMPLETED"),
+            #if($ctx.args.input.items)
+              "items": $util.dynamodb.toDynamoDBJson($ctx.args.input.items),
+            #end
+            #if($ctx.args.input.rewardId)
+              "rewardId": $util.dynamodb.toDynamoDBJson($ctx.args.input.rewardId),
+            #end
+            #if($ctx.args.input.notes)
+              "notes": $util.dynamodb.toDynamoDBJson($ctx.args.input.notes),
+            #end
+            "createdAt": $util.dynamodb.toDynamoDBJson($util.time.nowISO8601()),
+            "GSI1-PK": $util.dynamodb.toDynamoDBJson("USER#" + $ctx.args.input.userId),
+            "GSI1-SK": $util.dynamodb.toDynamoDBJson($util.time.nowISO8601()),
+            "GSI2-PK": $util.dynamodb.toDynamoDBJson("SHOP#" + $ctx.args.input.shopId),
+            "GSI2-SK": $util.dynamodb.toDynamoDBJson($util.time.nowISO8601())
+          }
+        }
+      `),
+      responseMappingTemplate: appsync.MappingTemplate.dynamoDbResultItem(),
+    });
+
+    this.api.createResolver('UpdateTransaction', 'Mutation', 'updateTransaction', 'AMAZON_DYNAMODB', {
+      dataSource: this.transactionsTable.tableName,
+      requestMappingTemplate: appsync.MappingTemplate.fromString(`
+        {
+          "version": "2017-02-28",
+          "operation": "UpdateItem",
+          "key": {
+            "id": $util.dynamodb.toDynamoDBJson($ctx.args.input.id),
+            "shopId": $util.dynamodb.toDynamoDBJson($ctx.args.input.shopId)
+          },
+          "update": {
+            "expression": "SET updatedAt = :updatedAt
+              #if($ctx.args.input.status) , #status = :status #end
+              #if($ctx.args.input.notes) , notes = :notes #end
+            ",
+            "expressionNames": {
+              #if($ctx.args.input.status) "#status": "status" #end
+            },
+            "expressionValues": {
+              ":updatedAt": $util.dynamodb.toDynamoDBJson($util.time.nowISO8601())
+              #if($ctx.args.input.status) , ":status": $util.dynamodb.toDynamoDBJson($ctx.args.input.status) #end
+              #if($ctx.args.input.notes) , ":notes": $util.dynamodb.toDynamoDBJson($ctx.args.input.notes) #end
+            }
+          }
+        }
+      `),
+      responseMappingTemplate: appsync.MappingTemplate.dynamoDbResultItem(),
+    });
+
+    this.api.createResolver('DeleteTransaction', 'Mutation', 'deleteTransaction', 'AMAZON_DYNAMODB', {
+      dataSource: this.transactionsTable.tableName,
+      requestMappingTemplate: appsync.MappingTemplate.dynamoDbDeleteItem('id', 'shopId'),
+      responseMappingTemplate: appsync.MappingTemplate.dynamoDbResultItem(),
+    });

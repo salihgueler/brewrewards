@@ -1,205 +1,200 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Transaction, TransactionItem } from '@/lib/types';
-import { AccessUser, canAccessShop } from '@/lib/shop-access';
 import { generateClient } from '@aws-amplify/api';
-import { listTransactions, getTransaction, createTransaction } from '@/graphql/queries';
-import { v4 as uuidv4 } from 'uuid';
+import { listTransactionsByShop, getTransaction } from '@/graphql/queries';
+import { createTransaction, updateTransaction, deleteTransaction } from '@/graphql/mutations';
+import { getCurrentUser } from '@/lib/auth';
+import { hasPermission } from '@/lib/permissions';
 
 const client = generateClient();
 
-/**
- * API endpoint to manage a shop's transactions
- * Protected by middleware for authentication and role-based access
- */
-
-// Get transactions for a shop
+// GET /api/shops/[shopId]/transactions
 export async function GET(
-  req: NextRequest,
+  request: NextRequest,
   { params }: { params: { shopId: string } }
 ) {
   try {
-    const { shopId } = params;
-    const searchParams = req.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const userId = searchParams.get('userId');
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
-    
-    // Get user from request headers (set by middleware)
-    const requestUserId = req.headers.get('x-user-id');
-    const userRole = req.headers.get('x-user-role');
-    const userShopId = req.headers.get('x-user-shop-id');
-    
-    if (!requestUserId || !userRole) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    const user: AccessUser = {
-      id: requestUserId,
-      role: userRole as any,
-      shopId: userShopId || undefined,
-    };
-    
-    // Check if user can access this shop's data
-    if (!canAccessShop(user, shopId)) {
-      return NextResponse.json(
-        { error: 'Forbidden: You do not have access to this shop' },
-        { status: 403 }
-      );
+
+    const shopId = params.shopId;
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    const nextToken = searchParams.get('nextToken') || undefined;
+    const startDate = searchParams.get('startDate') || undefined;
+    const endDate = searchParams.get('endDate') || undefined;
+    const transactionId = searchParams.get('id');
+
+    // Check if user has permission to view transactions for this shop
+    if (!hasPermission(user, 'VIEW_TRANSACTIONS', shopId)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    
-    // Additional check: customers can only access their own transactions
-    if (user.role === 'CUSTOMER' && (!userId || userId !== user.id)) {
-      // If userId is not specified, force it to be the current user's ID
-      // If userId is specified but doesn't match the current user, return error
-      if (userId && userId !== user.id) {
-        return NextResponse.json(
-          { error: 'Forbidden: You can only access your own transactions' },
-          { status: 403 }
-        );
+
+    // If transaction ID is provided, get a specific transaction
+    if (transactionId) {
+      const response = await client.graphql({
+        query: getTransaction,
+        variables: {
+          id: transactionId,
+          shopId
+        }
+      });
+
+      if (!response.data.getTransaction) {
+        return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
       }
+
+      return NextResponse.json(response.data.getTransaction);
     }
-    
-    // Build variables for GraphQL query
-    const variables: any = {
-      shopId,
-      limit,
-      nextToken: page > 1 ? `page${page-1}` : null
-    };
-    
-    // Add filters if provided
-    if (userId) {
-      variables.userId = userId;
-    }
-    
-    if (startDate) {
-      variables.startDate = startDate;
-    }
-    
-    if (endDate) {
-      variables.endDate = endDate;
-    }
-    
-    // Query transactions from AppSync GraphQL API
+
+    // Otherwise, list transactions for the shop
     const response = await client.graphql({
-      query: listTransactions,
-      variables
-    });
-    
-    const transactions = response.data.listTransactions.items;
-    const nextToken = response.data.listTransactions.nextToken;
-    
-    return NextResponse.json({
-      success: true,
-      data: transactions,
-      pagination: {
-        page,
+      query: listTransactionsByShop,
+      variables: {
+        shopId,
         limit,
-        total: transactions.length + ((page - 1) * limit),
-        totalPages: nextToken ? page + 1 : page,
-        nextToken
-      },
+        nextToken,
+        startDate,
+        endDate
+      }
     });
+
+    return NextResponse.json(response.data.listTransactionsByShop);
   } catch (error) {
     console.error('Error fetching transactions:', error);
     return NextResponse.json(
-      { error: 'An error occurred while fetching transactions' },
+      { error: 'Failed to fetch transactions' },
       { status: 500 }
     );
   }
 }
 
-// Create a new transaction
+// POST /api/shops/[shopId]/transactions
 export async function POST(
-  req: NextRequest,
+  request: NextRequest,
   { params }: { params: { shopId: string } }
 ) {
   try {
-    const { shopId } = params;
-    const { userId, amount, items, rewardRedeemed } = await req.json();
-    
-    // Get user from request headers (set by middleware)
-    const requestUserId = req.headers.get('x-user-id');
-    const userRole = req.headers.get('x-user-role');
-    const userShopId = req.headers.get('x-user-shop-id');
-    
-    if (!requestUserId || !userRole) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    const user: AccessUser = {
-      id: requestUserId,
-      role: userRole as any,
-      shopId: userShopId || undefined,
-    };
-    
-    // Check if user can access this shop's data
-    if (!canAccessShop(user, shopId)) {
-      return NextResponse.json(
-        { error: 'Forbidden: You do not have access to this shop' },
-        { status: 403 }
-      );
+
+    const shopId = params.shopId;
+    const body = await request.json();
+
+    // Check if user has permission to create transactions for this shop
+    if (!hasPermission(user, 'CREATE_TRANSACTIONS', shopId)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    
-    // Only shop staff, shop admins, and super admins can create transactions
-    if (user.role === 'CUSTOMER') {
-      return NextResponse.json(
-        { error: 'Forbidden: Customers cannot create transactions' },
-        { status: 403 }
-      );
-    }
-    
-    // Validate required fields
-    if (!userId || !amount || !items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-    
-    // Calculate points and stamps based on purchase
-    // This is a simple example - in a real app, this would be more complex
-    const pointsEarned = Math.floor(amount);
-    const stampsEarned = amount >= 5 ? 1 : 0;
-    
-    // Create transaction in DynamoDB via AppSync
-    const transactionInput = {
-      id: uuidv4(),
-      userId,
-      shopId,
-      amount,
-      items,
-      pointsEarned,
-      stampsEarned,
-      rewardRedeemed,
-      createdAt: new Date().toISOString()
-    };
-    
+
     const response = await client.graphql({
       query: createTransaction,
       variables: {
-        input: transactionInput
+        input: {
+          shopId,
+          userId: body.userId,
+          amount: body.amount,
+          points: body.points,
+          stamps: body.stamps,
+          type: body.type,
+          items: body.items,
+          rewardId: body.rewardId,
+          notes: body.notes
+        }
       }
     });
-    
-    const transaction = response.data.createTransaction;
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Transaction created successfully',
-      data: transaction,
-    }, { status: 201 });
+
+    return NextResponse.json(response.data.createTransaction, { status: 201 });
   } catch (error) {
     console.error('Error creating transaction:', error);
     return NextResponse.json(
-      { error: 'An error occurred while creating the transaction' },
+      { error: 'Failed to create transaction' },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH /api/shops/[shopId]/transactions
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { shopId: string } }
+) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const shopId = params.shopId;
+    const body = await request.json();
+
+    // Check if user has permission to update transactions for this shop
+    if (!hasPermission(user, 'UPDATE_TRANSACTIONS', shopId)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    if (!body.id) {
+      return NextResponse.json({ error: 'Transaction ID is required' }, { status: 400 });
+    }
+
+    const response = await client.graphql({
+      query: updateTransaction,
+      variables: {
+        input: {
+          id: body.id,
+          shopId,
+          status: body.status,
+          notes: body.notes
+        }
+      }
+    });
+
+    return NextResponse.json(response.data.updateTransaction);
+  } catch (error) {
+    console.error('Error updating transaction:', error);
+    return NextResponse.json(
+      { error: 'Failed to update transaction' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/shops/[shopId]/transactions
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { shopId: string } }
+) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const shopId = params.shopId;
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Transaction ID is required' }, { status: 400 });
+    }
+
+    // Check if user has permission to delete transactions for this shop
+    if (!hasPermission(user, 'DELETE_TRANSACTIONS', shopId)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const response = await client.graphql({
+      query: deleteTransaction,
+      variables: { id, shopId }
+    });
+
+    return NextResponse.json(response.data.deleteTransaction);
+  } catch (error) {
+    console.error('Error deleting transaction:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete transaction' },
       { status: 500 }
     );
   }

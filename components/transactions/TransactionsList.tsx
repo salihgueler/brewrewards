@@ -1,203 +1,165 @@
-'use client';
-
-import { useState } from 'react';
-import { Transaction } from '@/lib/types';
-import { useTransactions } from '@/lib/hooks/useTransactions';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React from 'react';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { ErrorAlert } from '@/components/ui/error-alert';
-import { formatCurrency } from '@/lib/utils';
-import { CalendarIcon, ChevronLeft, ChevronRight, Search } from 'lucide-react';
-import { format } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { MoreHorizontal, Eye, Edit, Trash2 } from 'lucide-react';
+import { Transaction } from '@/lib/types';
+import { LoadingState } from '@/components/ui/loading-state';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 interface TransactionsListProps {
-  shopId: string;
-  userId?: string;
-  title?: string;
+  transactions: Transaction[];
+  isLoading: boolean;
+  error: Error | null;
+  showShopInfo?: boolean;
+  onView?: (transaction: Transaction) => void;
+  onEdit?: (transaction: Transaction) => void;
+  onDelete?: (transaction: Transaction) => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
-export function TransactionsList({ shopId, userId, title = 'Transactions' }: TransactionsListProps) {
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  
-  const {
-    data: transactions,
-    loading,
-    error,
-    pagination,
-    fetchTransactions,
-    nextPage,
-    prevPage,
-  } = useTransactions({
-    shopId,
-    userId,
-    startDate: startDate || undefined,
-    endDate: endDate || undefined,
-    limit: 10,
-  });
-  
-  const filteredTransactions = searchTerm
-    ? transactions.filter(transaction => 
-        transaction.items.some(item => 
-          item.name.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      )
-    : transactions;
-  
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchTransactions();
-  };
-  
-  if (loading && !transactions.length) {
-    return <LoadingSpinner size="lg" text="Loading transactions..." />;
+const getStatusBadgeColor = (status: string) => {
+  switch (status) {
+    case 'COMPLETED':
+      return 'bg-green-100 text-green-800 hover:bg-green-200';
+    case 'PENDING':
+      return 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200';
+    case 'CANCELLED':
+      return 'bg-red-100 text-red-800 hover:bg-red-200';
+    default:
+      return 'bg-gray-100 text-gray-800 hover:bg-gray-200';
   }
-  
-  if (error) {
-    return <ErrorAlert error={error} onRetry={fetchTransactions} />;
+};
+
+const getTypeBadgeColor = (type: string) => {
+  switch (type) {
+    case 'PURCHASE':
+      return 'bg-blue-100 text-blue-800 hover:bg-blue-200';
+    case 'REWARD_REDEMPTION':
+      return 'bg-purple-100 text-purple-800 hover:bg-purple-200';
+    default:
+      return 'bg-gray-100 text-gray-800 hover:bg-gray-200';
   }
-  
+};
+
+const TransactionsList: React.FC<TransactionsListProps> = ({
+  transactions,
+  isLoading,
+  error,
+  showShopInfo = false,
+  onView,
+  onEdit,
+  onDelete,
+  canEdit = false,
+  canDelete = false
+}) => {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <div className="flex flex-col sm:flex-row gap-4 mt-4">
-          <form onSubmit={handleSearch} className="flex flex-1 gap-2">
-            <div className="flex-1">
-              <Input
-                placeholder="Search transactions..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <Button type="submit" size="sm">
-              <Search className="h-4 w-4 mr-2" />
-              Search
-            </Button>
-          </form>
-          <div className="flex gap-2">
-            <div>
-              <Label htmlFor="startDate" className="sr-only">Start Date</Label>
-              <div className="relative">
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  placeholder="Start Date"
-                />
-                <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="endDate" className="sr-only">End Date</Label>
-              <div className="relative">
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  placeholder="End Date"
-                />
-                <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              </div>
-            </div>
-            <Button variant="outline" onClick={fetchTransactions}>
-              Filter
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {loading && <LoadingSpinner size="sm" text="Refreshing..." />}
-        
-        {!loading && filteredTransactions.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            No transactions found.
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4">Date</th>
-                    <th className="text-left py-3 px-4">Items</th>
-                    <th className="text-right py-3 px-4">Amount</th>
-                    <th className="text-right py-3 px-4">Rewards</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTransactions.map((transaction) => (
-                    <tr key={transaction.id} className="border-b hover:bg-muted/50">
-                      <td className="py-3 px-4">
-                        {format(new Date(transaction.createdAt), 'MMM d, yyyy h:mm a')}
-                      </td>
-                      <td className="py-3 px-4">
-                        <ul className="list-disc list-inside">
-                          {transaction.items.map((item, index) => (
-                            <li key={index}>
-                              {item.name} x {item.quantity} ({formatCurrency(item.price)})
-                            </li>
-                          ))}
-                        </ul>
-                      </td>
-                      <td className="py-3 px-4 text-right font-medium">
-                        {formatCurrency(transaction.amount)}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div>
-                          {transaction.pointsEarned > 0 && (
-                            <span className="block text-green-600">+{transaction.pointsEarned} points</span>
-                          )}
-                          {transaction.stampsEarned > 0 && (
-                            <span className="block text-blue-600">+{transaction.stampsEarned} stamps</span>
-                          )}
-                          {transaction.rewardRedeemed && (
-                            <span className="block text-purple-600">
-                              Redeemed: {transaction.rewardRedeemed.name}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            
-            <div className="flex items-center justify-between mt-4">
-              <div className="text-sm text-muted-foreground">
-                Showing {filteredTransactions.length} of {pagination.total} transactions
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={prevPage}
-                  disabled={pagination.page <= 1}
-                >
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={nextPage}
-                  disabled={pagination.page >= pagination.totalPages}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
+    <LoadingState
+      loading={isLoading}
+      error={error}
+      loadingText="Loading transactions..."
+      errorText="Failed to load transactions"
+    >
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              {showShopInfo && <TableHead>Shop</TableHead>}
+              <TableHead>Customer</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Amount</TableHead>
+              <TableHead>Points</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="w-[80px]"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {transactions.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={showShopInfo ? 8 : 7} className="text-center py-6 text-muted-foreground">
+                  No transactions found
+                </TableCell>
+              </TableRow>
+            ) : (
+              transactions.map((transaction) => (
+                <TableRow key={transaction.id}>
+                  <TableCell>{formatDate(transaction.createdAt)}</TableCell>
+                  {showShopInfo && (
+                    <TableCell>
+                      {transaction.shop?.name || 'Unknown Shop'}
+                    </TableCell>
+                  )}
+                  <TableCell>
+                    {transaction.user?.firstName} {transaction.user?.lastName}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={getTypeBadgeColor(transaction.type)}>
+                      {transaction.type === 'PURCHASE' ? 'Purchase' : 'Redemption'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{formatCurrency(transaction.amount)}</TableCell>
+                  <TableCell>{transaction.points}</TableCell>
+                  <TableCell>
+                    <Badge className={getStatusBadgeColor(transaction.status)}>
+                      {transaction.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {onView && (
+                          <DropdownMenuItem onClick={() => onView(transaction)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Details
+                          </DropdownMenuItem>
+                        )}
+                        {canEdit && onEdit && (
+                          <DropdownMenuItem onClick={() => onEdit(transaction)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                        )}
+                        {canDelete && onDelete && (
+                          <DropdownMenuItem 
+                            onClick={() => onDelete(transaction)}
+                            className="text-red-600 focus:text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </LoadingState>
   );
-}
+};
+
+export default TransactionsList;

@@ -1,315 +1,291 @@
-'use client';
-
-import { useState } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { 
+  Form, 
+  FormControl, 
+  FormField, 
+  FormItem, 
+  FormLabel, 
+  FormMessage 
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useCreateTransaction } from '@/lib/hooks/useTransactions';
 import { useUsers } from '@/lib/hooks/useUsers';
-import { useMenuItems } from '@/lib/hooks/useMenuItems';
 import { useRewards } from '@/lib/hooks/useRewards';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { ErrorAlert } from '@/components/ui/error-alert';
-import { formatCurrency } from '@/lib/utils';
-import { Plus, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
-
-const transactionSchema = z.object({
-  userId: z.string().min(1, 'Customer is required'),
-  items: z.array(
-    z.object({
-      menuItemId: z.string().min(1, 'Menu item is required'),
-      name: z.string(),
-      quantity: z.number().min(1, 'Quantity must be at least 1'),
-      price: z.number().min(0, 'Price must be at least 0'),
-    })
-  ).min(1, 'At least one item is required'),
-  rewardRedeemed: z.object({
-    rewardId: z.string(),
-    name: z.string(),
-    value: z.number(),
-  }).optional(),
-});
-
-type TransactionFormValues = z.infer<typeof transactionSchema>;
+import { toast } from '@/components/ui/use-toast';
 
 interface CreateTransactionFormProps {
   shopId: string;
   onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
-export function CreateTransactionForm({ shopId, onSuccess }: CreateTransactionFormProps) {
-  const [selectedReward, setSelectedReward] = useState<string>('');
-  
-  const { createTransaction, loading: submitting, error: submitError } = useCreateTransaction({ shopId });
-  
-  const { data: users, loading: loadingUsers, error: usersError } = useUsers({
-    shopId,
-    role: 'CUSTOMER',
+const formSchema = z.object({
+  userId: z.string().min(1, { message: 'Customer is required' }),
+  amount: z.coerce.number().min(0.01, { message: 'Amount must be greater than 0' }),
+  points: z.coerce.number().int().min(0, { message: 'Points must be a positive number' }),
+  stamps: z.coerce.number().int().min(0, { message: 'Stamps must be a positive number' }).optional(),
+  type: z.enum(['PURCHASE', 'REWARD_REDEMPTION']),
+  rewardId: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+type FormValues = z.infer<typeof formSchema>;
+
+const CreateTransactionForm: React.FC<CreateTransactionFormProps> = ({ 
+  shopId,
+  onSuccess,
+  onCancel
+}) => {
+  const [transactionType, setTransactionType] = useState<'PURCHASE' | 'REWARD_REDEMPTION'>('PURCHASE');
+  const { createTransaction, loading, error } = useCreateTransaction({ 
+    onSuccess: () => {
+      toast({
+        title: 'Transaction created',
+        description: 'The transaction has been successfully created',
+      });
+      onSuccess?.();
+    }
   });
-  
-  const { data: menuItems, loading: loadingMenuItems, error: menuItemsError } = useMenuItems({
-    shopId,
+
+  // Fetch customers for this shop
+  const { data: customers, loading: loadingCustomers } = useUsers({ 
+    shopId, 
+    role: 'CUSTOMER' 
   });
-  
-  const { data: rewards, loading: loadingRewards, error: rewardsError } = useRewards({
-    shopId,
-  });
-  
-  const {
-    register,
-    control,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors },
-  } = useForm<TransactionFormValues>({
-    resolver: zodResolver(transactionSchema),
+
+  // Fetch rewards for this shop
+  const { data: rewards, loading: loadingRewards } = useRewards({ shopId });
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       userId: '',
-      items: [{ menuItemId: '', name: '', quantity: 1, price: 0 }],
+      amount: 0,
+      points: 0,
+      stamps: 0,
+      type: 'PURCHASE',
+      notes: '',
     },
   });
-  
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: 'items',
-  });
-  
-  const watchItems = watch('items');
-  const totalAmount = watchItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
-  
-  const handleMenuItemChange = (index: number, menuItemId: string) => {
-    const menuItem = menuItems.find(item => item.id === menuItemId);
-    if (menuItem) {
-      setValue(`items.${index}.name`, menuItem.name);
-      setValue(`items.${index}.price`, menuItem.price);
+
+  const handleTypeChange = (type: 'PURCHASE' | 'REWARD_REDEMPTION') => {
+    setTransactionType(type);
+    form.setValue('type', type);
+    
+    // Reset reward-specific fields if changing to purchase
+    if (type === 'PURCHASE') {
+      form.setValue('rewardId', undefined);
     }
   };
-  
-  const handleRewardChange = (rewardId: string) => {
-    setSelectedReward(rewardId);
-    
-    if (!rewardId) {
-      setValue('rewardRedeemed', undefined);
-      return;
-    }
-    
-    const reward = rewards.find(r => r.id === rewardId);
-    if (reward) {
-      setValue('rewardRedeemed', {
-        rewardId: reward.id,
-        name: reward.name,
-        value: reward.pointsRequired / 10, // Example conversion of points to monetary value
-      });
-    }
-  };
-  
-  const onSubmit = async (data: TransactionFormValues) => {
+
+  const onSubmit = async (values: FormValues) => {
     try {
       await createTransaction({
-        ...data,
-        amount: totalAmount - (data.rewardRedeemed?.value || 0),
+        shopId,
+        userId: values.userId,
+        amount: values.amount,
+        points: values.points,
+        stamps: values.stamps,
+        type: values.type,
+        rewardId: values.rewardId,
+        notes: values.notes,
       });
-      
-      toast.success('Transaction created successfully');
-      
-      if (onSuccess) {
-        onSuccess();
-      }
-    } catch (error) {
-      toast.error('Failed to create transaction');
+    } catch (err) {
+      toast({
+        title: 'Failed to create transaction',
+        description: error?.message || 'An error occurred while creating the transaction',
+        variant: 'destructive',
+      });
     }
   };
-  
-  if (loadingUsers || loadingMenuItems || loadingRewards) {
-    return <LoadingSpinner size="lg" text="Loading form data..." />;
-  }
-  
-  if (usersError || menuItemsError || rewardsError) {
-    return <ErrorAlert error={usersError || menuItemsError || rewardsError} />;
-  }
-  
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Create Transaction</CardTitle>
-      </CardHeader>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <CardContent className="space-y-4">
-          {submitError && <ErrorAlert error={submitError} />}
-          
-          <div className="space-y-2">
-            <Label htmlFor="userId">Customer</Label>
-            <Select
-              onValueChange={(value) => setValue('userId', value)}
-              defaultValue=""
-            >
-              <SelectTrigger id="userId">
-                <SelectValue placeholder="Select a customer" />
-              </SelectTrigger>
-              <SelectContent>
-                {users.map((user) => (
-                  <SelectItem key={user.id} value={user.id}>
-                    {user.firstName} {user.lastName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.userId && (
-              <p className="text-sm text-destructive">{errors.userId.message}</p>
-            )}
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Items</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => append({ menuItemId: '', name: '', quantity: 1, price: 0 })}
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <FormField
+          control={form.control}
+          name="type"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Transaction Type</FormLabel>
+              <Select 
+                onValueChange={(value) => handleTypeChange(value as 'PURCHASE' | 'REWARD_REDEMPTION')}
+                defaultValue={field.value}
               >
-                <Plus className="h-4 w-4 mr-1" />
-                Add Item
-              </Button>
-            </div>
-            
-            {fields.map((field, index) => (
-              <div key={field.id} className="flex flex-col sm:flex-row gap-2 p-3 border rounded-md">
-                <div className="flex-1">
-                  <Label htmlFor={`items.${index}.menuItemId`} className="sr-only">
-                    Menu Item
-                  </Label>
-                  <Select
-                    onValueChange={(value) => handleMenuItemChange(index, value)}
-                    defaultValue=""
-                  >
-                    <SelectTrigger id={`items.${index}.menuItemId`}>
-                      <SelectValue placeholder="Select a menu item" />
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select transaction type" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="PURCHASE">Purchase</SelectItem>
+                  <SelectItem value="REWARD_REDEMPTION">Reward Redemption</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="userId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Customer</FormLabel>
+              <Select 
+                onValueChange={field.onChange}
+                defaultValue={field.value}
+                disabled={loadingCustomers}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a customer" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {customers?.map((customer) => (
+                    <SelectItem key={customer.id} value={customer.id}>
+                      {customer.firstName} {customer.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="amount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Amount ($)</FormLabel>
+              <FormControl>
+                <Input 
+                  type="number" 
+                  step="0.01" 
+                  placeholder="0.00" 
+                  {...field} 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="points"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Points</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="number" 
+                    placeholder="0" 
+                    {...field} 
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="stamps"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Stamps</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="number" 
+                    placeholder="0" 
+                    {...field} 
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {transactionType === 'REWARD_REDEMPTION' && (
+          <FormField
+            control={form.control}
+            name="rewardId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Reward</FormLabel>
+                <Select 
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  disabled={loadingRewards}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a reward" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {menuItems.map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                          {item.name} ({formatCurrency(item.price)})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <input
-                    type="hidden"
-                    {...register(`items.${index}.menuItemId` as const)}
-                  />
-                  <input
-                    type="hidden"
-                    {...register(`items.${index}.name` as const)}
-                  />
-                  <input
-                    type="hidden"
-                    {...register(`items.${index}.price` as const, { valueAsNumber: true })}
-                  />
-                  {errors.items?.[index]?.menuItemId && (
-                    <p className="text-sm text-destructive">
-                      {errors.items[index]?.menuItemId?.message}
-                    </p>
-                  )}
-                </div>
-                
-                <div className="w-20">
-                  <Label htmlFor={`items.${index}.quantity`} className="sr-only">
-                    Quantity
-                  </Label>
-                  <Input
-                    id={`items.${index}.quantity`}
-                    type="number"
-                    min="1"
-                    {...register(`items.${index}.quantity` as const, { valueAsNumber: true })}
-                    placeholder="Qty"
-                  />
-                  {errors.items?.[index]?.quantity && (
-                    <p className="text-sm text-destructive">
-                      {errors.items[index]?.quantity?.message}
-                    </p>
-                  )}
-                </div>
-                
-                <div className="w-24 text-right flex items-center justify-between">
-                  <span className="font-medium">
-                    {formatCurrency(
-                      (watchItems[index]?.quantity || 0) * (watchItems[index]?.price || 0)
-                    )}
-                  </span>
-                  
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => remove(index)}
-                    disabled={fields.length === 1}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                    <span className="sr-only">Remove</span>
-                  </Button>
-                </div>
-              </div>
-            ))}
-            
-            {errors.items && (
-              <p className="text-sm text-destructive">{errors.items.message}</p>
+                  </FormControl>
+                  <SelectContent>
+                    {rewards?.map((reward) => (
+                      <SelectItem key={reward.id} value={reward.id}>
+                        {reward.name} ({reward.pointsCost} points)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
             )}
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="rewardRedeemed">Redeem Reward</Label>
-            <Select
-              onValueChange={handleRewardChange}
-              value={selectedReward}
-            >
-              <SelectTrigger id="rewardRedeemed">
-                <SelectValue placeholder="Select a reward to redeem (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">No reward</SelectItem>
-                {rewards.map((reward) => (
-                  <SelectItem key={reward.id} value={reward.id}>
-                    {reward.name} ({reward.pointsRequired} points)
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="pt-4 border-t">
-            <div className="flex justify-between text-lg font-medium">
-              <span>Total Amount:</span>
-              <span>{formatCurrency(totalAmount)}</span>
-            </div>
-            
-            {watch('rewardRedeemed') && (
-              <div className="flex justify-between text-sm text-muted-foreground mt-1">
-                <span>Reward Discount:</span>
-                <span>-{formatCurrency(watch('rewardRedeemed')?.value || 0)}</span>
-              </div>
-            )}
-            
-            <div className="flex justify-between text-xl font-bold mt-2">
-              <span>Final Amount:</span>
-              <span>{formatCurrency(totalAmount - (watch('rewardRedeemed')?.value || 0))}</span>
-            </div>
-          </div>
-        </CardContent>
-        
-        <CardFooter className="flex justify-end">
-          <Button type="submit" disabled={submitting}>
-            {submitting ? <LoadingSpinner size="sm" /> : 'Create Transaction'}
+          />
+        )}
+
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Notes</FormLabel>
+              <FormControl>
+                <Textarea 
+                  placeholder="Add any additional notes here..." 
+                  {...field} 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="flex justify-end space-x-4">
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+          <Button type="submit" disabled={loading}>
+            {loading ? 'Creating...' : 'Create Transaction'}
           </Button>
-        </CardFooter>
+        </div>
       </form>
-    </Card>
+    </Form>
   );
-}
+};
+
+export default CreateTransactionForm;

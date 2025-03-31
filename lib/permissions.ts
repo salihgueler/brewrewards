@@ -192,3 +192,55 @@ export function hasStaffPermission(user: User, permission: string, shopId?: stri
   
   return false;
 }
+// Transaction permissions
+export const VIEW_TRANSACTIONS = 'VIEW_TRANSACTIONS';
+export const CREATE_TRANSACTIONS = 'CREATE_TRANSACTIONS';
+export const UPDATE_TRANSACTIONS = 'UPDATE_TRANSACTIONS';
+export const DELETE_TRANSACTIONS = 'DELETE_TRANSACTIONS';
+
+// Add transaction permissions to the permission map
+permissionMap.set('SUPER_ADMIN', [
+  ...permissionMap.get('SUPER_ADMIN') || [],
+  VIEW_TRANSACTIONS,
+  CREATE_TRANSACTIONS,
+  UPDATE_TRANSACTIONS,
+  DELETE_TRANSACTIONS
+]);
+
+permissionMap.set('SHOP_ADMIN', [
+  ...permissionMap.get('SHOP_ADMIN') || [],
+  VIEW_TRANSACTIONS,
+  CREATE_TRANSACTIONS,
+  UPDATE_TRANSACTIONS,
+  DELETE_TRANSACTIONS
+]);
+
+// Staff with PROCESS_TRANSACTIONS permission can view and create transactions
+export function hasTransactionPermission(user: User, permission: string, shopId?: string): boolean {
+  // Super admins have all permissions
+  if (user.role === 'SUPER_ADMIN') {
+    return true;
+  }
+  
+  // Shop admins have permissions for their own shop
+  if (user.role === 'SHOP_ADMIN' && user.shopId === shopId) {
+    return permissionMap.get('SHOP_ADMIN')?.includes(permission) || false;
+  }
+  
+  // Staff members with PROCESS_TRANSACTIONS permission can view and create transactions
+  if (user.role === 'STAFF' && user.shopId === shopId) {
+    if (user.permissions?.includes('PROCESS_TRANSACTIONS')) {
+      if (permission === VIEW_TRANSACTIONS || permission === CREATE_TRANSACTIONS) {
+        return true;
+      }
+    }
+    return user.permissions?.includes(permission) || false;
+  }
+  
+  // Customers can view their own transactions but not create/update/delete
+  if (user.role === 'CUSTOMER' && permission === VIEW_TRANSACTIONS) {
+    return true;
+  }
+  
+  return false;
+}

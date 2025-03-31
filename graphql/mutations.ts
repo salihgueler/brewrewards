@@ -337,3 +337,49 @@ export const cancelStaffInvitation = /* GraphQL */ `
     }
   }
 `;
+// Transaction mutations
+export const createTransaction = /* GraphQL */ `
+  mutation CreateTransaction($input: CreateTransactionInput!) {
+    createTransaction(input: $input) {
+      id
+      shopId
+      userId
+      amount
+      points
+      stamps
+      type
+      status
+      items {
+        id
+        name
+        quantity
+        price
+      }
+      rewardId
+      notes
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const updateTransaction = /* GraphQL */ `
+  mutation UpdateTransaction($input: UpdateTransactionInput!) {
+    updateTransaction(input: $input) {
+      id
+      shopId
+      status
+      notes
+      updatedAt
+    }
+  }
+`;
+
+export const deleteTransaction = /* GraphQL */ `
+  mutation DeleteTransaction($id: ID!, $shopId: ID!) {
+    deleteTransaction(id: $id, shopId: $shopId) {
+      id
+      shopId
+    }
+  }
+`;

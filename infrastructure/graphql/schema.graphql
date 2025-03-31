@@ -577,3 +577,86 @@ extend type Mutation {
   resendStaffInvitation(id: ID!): StaffInvitation!
   cancelStaffInvitation(id: ID!): StaffInvitation!
 }
+# Transaction Types
+type Transaction {
+  id: ID!
+  shopId: ID!
+  userId: ID!
+  amount: Float!
+  points: Int!
+  stamps: Int
+  type: TransactionType!
+  status: TransactionStatus!
+  items: [TransactionItem]
+  rewardId: ID
+  notes: String
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime
+  user: User
+  shop: Shop
+}
+
+type TransactionItem {
+  id: ID!
+  name: String!
+  quantity: Int!
+  price: Float!
+}
+
+enum TransactionType {
+  PURCHASE
+  REWARD_REDEMPTION
+}
+
+enum TransactionStatus {
+  COMPLETED
+  PENDING
+  CANCELLED
+}
+
+input TransactionItemInput {
+  id: ID!
+  name: String!
+  quantity: Int!
+  price: Float!
+}
+
+input CreateTransactionInput {
+  shopId: ID!
+  userId: ID!
+  amount: Float!
+  points: Int!
+  stamps: Int
+  type: TransactionType!
+  items: [TransactionItemInput]
+  rewardId: ID
+  notes: String
+}
+
+input UpdateTransactionInput {
+  id: ID!
+  shopId: ID!
+  status: TransactionStatus
+  notes: String
+}
+
+type TransactionConnection {
+  items: [Transaction]!
+  nextToken: String
+}
+
+# Add to Query type
+extend type Query {
+  # Transaction queries
+  getTransaction(id: ID!, shopId: ID!): Transaction
+  listTransactionsByShop(shopId: ID!, limit: Int, nextToken: String, startDate: AWSDateTime, endDate: AWSDateTime): TransactionConnection!
+  listTransactionsByUser(userId: ID!, limit: Int, nextToken: String, startDate: AWSDateTime, endDate: AWSDateTime): TransactionConnection!
+}
+
+# Add to Mutation type
+extend type Mutation {
+  # Transaction mutations
+  createTransaction(input: CreateTransactionInput!): Transaction!
+  updateTransaction(input: UpdateTransactionInput!): Transaction!
+  deleteTransaction(id: ID!, shopId: ID!): Transaction!
+}

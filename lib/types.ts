@@ -162,3 +162,47 @@ export interface UpdateStaffMemberInput {
   permissions?: string[];
   isActive?: boolean;
 }
+export interface Transaction {
+  id: string;
+  shopId: string;
+  userId: string;
+  amount: number;
+  points: number;
+  stamps?: number;
+  type: 'PURCHASE' | 'REWARD_REDEMPTION';
+  status: 'COMPLETED' | 'PENDING' | 'CANCELLED';
+  items?: {
+    id: string;
+    name: string;
+    quantity: number;
+    price: number;
+  }[];
+  rewardId?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateTransactionInput {
+  shopId: string;
+  userId: string;
+  amount: number;
+  points: number;
+  stamps?: number;
+  type: 'PURCHASE' | 'REWARD_REDEMPTION';
+  items?: {
+    id: string;
+    name: string;
+    quantity: number;
+    price: number;
+  }[];
+  rewardId?: string;
+  notes?: string;
+}
+
+export interface UpdateTransactionInput {
+  id: string;
+  shopId: string;
+  status?: 'COMPLETED' | 'PENDING' | 'CANCELLED';
+  notes?: string;
+}

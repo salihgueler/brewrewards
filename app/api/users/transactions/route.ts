@@ -1,89 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Transaction } from '@/lib/types';
 import { generateClient } from '@aws-amplify/api';
-import { listUserTransactions } from '@/graphql/queries';
+import { listTransactionsByUser } from '@/graphql/queries';
+import { getCurrentUser } from '@/lib/auth';
 
 const client = generateClient();
 
-/**
- * API endpoint to fetch a user's transactions across all shops
- * Protected by middleware for authentication
- */
-
-export async function GET(req: NextRequest) {
+// GET /api/users/transactions
+export async function GET(request: NextRequest) {
   try {
-    const searchParams = req.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const userId = searchParams.get('userId');
-    const shopId = searchParams.get('shopId');
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
-    
-    // Get user from request headers (set by middleware)
-    const requestUserId = req.headers.get('x-user-id');
-    const userRole = req.headers.get('x-user-role');
-    
-    if (!requestUserId || !userRole) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    // Users can only access their own transactions unless they are admins
-    const targetUserId = userId || requestUserId;
-    if (userRole !== 'SUPER_ADMIN' && userRole !== 'SHOP_ADMIN' && targetUserId !== requestUserId) {
-      return NextResponse.json(
-        { error: 'Forbidden: You can only access your own transactions' },
-        { status: 403 }
-      );
+
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    const nextToken = searchParams.get('nextToken') || undefined;
+    const startDate = searchParams.get('startDate') || undefined;
+    const endDate = searchParams.get('endDate') || undefined;
+    const userId = searchParams.get('userId') || user.id;
+
+    // If requesting transactions for another user, check if current user is a super admin
+    if (userId !== user.id && user.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    
-    // Build variables for GraphQL query
-    const variables: any = {
-      userId: targetUserId,
-      limit,
-      nextToken: page > 1 ? `page${page-1}` : null
-    };
-    
-    // Add filters if provided
-    if (shopId) {
-      variables.shopId = shopId;
-    }
-    
-    if (startDate) {
-      variables.startDate = startDate;
-    }
-    
-    if (endDate) {
-      variables.endDate = endDate;
-    }
-    
-    // Query transactions from AppSync GraphQL API
+
     const response = await client.graphql({
-      query: listUserTransactions,
-      variables
-    });
-    
-    const transactions = response.data.listUserTransactions.items;
-    const nextToken = response.data.listUserTransactions.nextToken;
-    
-    return NextResponse.json({
-      success: true,
-      data: transactions,
-      pagination: {
-        page,
+      query: listTransactionsByUser,
+      variables: {
+        userId,
         limit,
-        total: transactions.length + ((page - 1) * limit),
-        totalPages: nextToken ? page + 1 : page,
-        nextToken
-      },
+        nextToken,
+        startDate,
+        endDate
+      }
     });
+
+    return NextResponse.json(response.data.listTransactionsByUser);
   } catch (error) {
     console.error('Error fetching user transactions:', error);
     return NextResponse.json(
-      { error: 'An error occurred while fetching transactions' },
+      { error: 'Failed to fetch transactions' },
       { status: 500 }
     );
   }

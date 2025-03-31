@@ -493,3 +493,119 @@ export const listStaffInvitations = /* GraphQL */ `
     }
   }
 `;
+// Transaction queries
+export const getTransaction = /* GraphQL */ `
+  query GetTransaction($id: ID!, $shopId: ID!) {
+    getTransaction(id: $id, shopId: $shopId) {
+      id
+      shopId
+      userId
+      amount
+      points
+      stamps
+      type
+      status
+      items {
+        id
+        name
+        quantity
+        price
+      }
+      rewardId
+      notes
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const listTransactionsByShop = /* GraphQL */ `
+  query ListTransactionsByShop(
+    $shopId: ID!
+    $limit: Int
+    $nextToken: String
+    $startDate: AWSDateTime
+    $endDate: AWSDateTime
+  ) {
+    listTransactionsByShop(
+      shopId: $shopId
+      limit: $limit
+      nextToken: $nextToken
+      startDate: $startDate
+      endDate: $endDate
+    ) {
+      items {
+        id
+        shopId
+        userId
+        amount
+        points
+        stamps
+        type
+        status
+        items {
+          id
+          name
+          quantity
+          price
+        }
+        rewardId
+        notes
+        createdAt
+        updatedAt
+        user {
+          id
+          email
+          firstName
+          lastName
+        }
+      }
+      nextToken
+    }
+  }
+`;
+
+export const listTransactionsByUser = /* GraphQL */ `
+  query ListTransactionsByUser(
+    $userId: ID!
+    $limit: Int
+    $nextToken: String
+    $startDate: AWSDateTime
+    $endDate: AWSDateTime
+  ) {
+    listTransactionsByUser(
+      userId: $userId
+      limit: $limit
+      nextToken: $nextToken
+      startDate: $startDate
+      endDate: $endDate
+    ) {
+      items {
+        id
+        shopId
+        userId
+        amount
+        points
+        stamps
+        type
+        status
+        items {
+          id
+          name
+          quantity
+          price
+        }
+        rewardId
+        notes
+        createdAt
+        updatedAt
+        shop {
+          id
+          name
+          logoUrl
+        }
+      }
+      nextToken
+    }
+  }
+`;
