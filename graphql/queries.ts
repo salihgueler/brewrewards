@@ -282,3 +282,214 @@ export const listUserRewardsQuery = `
     }
   }
 `;
+
+// Transaction queries
+export const getTransaction = /* GraphQL */ `
+  query GetTransaction($id: ID!) {
+    getTransaction(id: $id) {
+      id
+      userId
+      shopId
+      amount
+      items {
+        menuItemId
+        name
+        quantity
+        price
+      }
+      pointsEarned
+      stampsEarned
+      rewardRedeemed {
+        rewardId
+        name
+        value
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const listTransactions = /* GraphQL */ `
+  query ListTransactions(
+    $shopId: ID!
+    $userId: ID
+    $startDate: AWSDateTime
+    $endDate: AWSDateTime
+    $limit: Int
+    $nextToken: String
+  ) {
+    listTransactions(
+      shopId: $shopId
+      userId: $userId
+      startDate: $startDate
+      endDate: $endDate
+      limit: $limit
+      nextToken: $nextToken
+    ) {
+      items {
+        id
+        userId
+        shopId
+        amount
+        items {
+          menuItemId
+          name
+          quantity
+          price
+        }
+        pointsEarned
+        stampsEarned
+        rewardRedeemed {
+          rewardId
+          name
+          value
+        }
+        createdAt
+        updatedAt
+      }
+      nextToken
+    }
+  }
+`;
+
+export const listUserTransactions = /* GraphQL */ `
+  query ListUserTransactions(
+    $userId: ID!
+    $shopId: ID
+    $startDate: AWSDateTime
+    $endDate: AWSDateTime
+    $limit: Int
+    $nextToken: String
+  ) {
+    listUserTransactions(
+      userId: $userId
+      shopId: $shopId
+      startDate: $startDate
+      endDate: $endDate
+      limit: $limit
+      nextToken: $nextToken
+    ) {
+      items {
+        id
+        userId
+        shopId
+        amount
+        items {
+          menuItemId
+          name
+          quantity
+          price
+        }
+        pointsEarned
+        stampsEarned
+        rewardRedeemed {
+          rewardId
+          name
+          value
+        }
+        createdAt
+        updatedAt
+      }
+      nextToken
+    }
+  }
+`;
+// Staff Management queries
+export const getStaffMember = /* GraphQL */ `
+  query GetStaffMember($id: ID!) {
+    getStaffMember(id: $id) {
+      id
+      userId
+      shopId
+      role
+      permissions
+      isActive
+      user {
+        id
+        email
+        firstName
+        lastName
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const listStaffMembers = /* GraphQL */ `
+  query ListStaffMembers(
+    $shopId: ID!
+    $limit: Int
+    $nextToken: String
+  ) {
+    listStaffMembers(
+      shopId: $shopId
+      limit: $limit
+      nextToken: $nextToken
+    ) {
+      items {
+        id
+        userId
+        shopId
+        role
+        permissions
+        isActive
+        user {
+          id
+          email
+          firstName
+          lastName
+        }
+        createdAt
+        updatedAt
+      }
+      nextToken
+    }
+  }
+`;
+
+export const getStaffInvitation = /* GraphQL */ `
+  query GetStaffInvitation($id: ID!) {
+    getStaffInvitation(id: $id) {
+      id
+      shopId
+      email
+      role
+      permissions
+      status
+      expiresAt
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const listStaffInvitations = /* GraphQL */ `
+  query ListStaffInvitations(
+    $shopId: ID!
+    $status: String
+    $limit: Int
+    $nextToken: String
+  ) {
+    listStaffInvitations(
+      shopId: $shopId
+      status: $status
+      limit: $limit
+      nextToken: $nextToken
+    ) {
+      items {
+        id
+        shopId
+        email
+        role
+        permissions
+        status
+        expiresAt
+        createdAt
+        updatedAt
+      }
+      nextToken
+    }
+  }
+`;

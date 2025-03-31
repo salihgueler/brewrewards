@@ -33,6 +33,11 @@ type Query {
   # Favorite queries
   getFavorite(userId: ID!, shopId: ID!, itemId: ID!): Favorite
   listFavorites(userId: ID!, shopId: ID, limit: Int, nextToken: String): FavoriteConnection!
+  
+  # Transaction queries
+  getTransaction(id: ID!): Transaction
+  listTransactions(shopId: ID!, userId: ID, startDate: AWSDateTime, endDate: AWSDateTime, limit: Int, nextToken: String): TransactionConnection!
+  listUserTransactions(userId: ID!, shopId: ID, startDate: AWSDateTime, endDate: AWSDateTime, limit: Int, nextToken: String): TransactionConnection!
 }
 
 type Mutation {
@@ -71,6 +76,9 @@ type Mutation {
   # Favorite mutations
   addFavorite(userId: ID!, shopId: ID!, itemId: ID!): Favorite!
   removeFavorite(userId: ID!, shopId: ID!, itemId: ID!): Favorite!
+  
+  # Transaction mutations
+  createTransaction(input: CreateTransactionInput!): Transaction!
   
   # S3 Image Upload
   generateUploadUrl(shopId: ID!, fileName: String!, contentType: String!): S3PresignedUrl!
@@ -437,5 +445,135 @@ type S3PresignedUrl {
   key: String!
 }
 
+# Transaction type and inputs
+type Transaction {
+  id: ID!
+  userId: ID!
+  shopId: ID!
+  amount: Float!
+  items: [TransactionItem]!
+  pointsEarned: Int!
+  stampsEarned: Int!
+  rewardRedeemed: RewardRedeemed
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime
+}
+
+type TransactionItem {
+  menuItemId: ID!
+  name: String!
+  quantity: Int!
+  price: Float!
+}
+
+type RewardRedeemed {
+  rewardId: ID!
+  name: String!
+  value: Float!
+}
+
+input CreateTransactionInput {
+  userId: ID!
+  shopId: ID!
+  amount: Float!
+  items: [TransactionItemInput]!
+  pointsEarned: Int!
+  stampsEarned: Int!
+  rewardRedeemed: RewardRedeemedInput
+}
+
+input TransactionItemInput {
+  menuItemId: ID!
+  name: String!
+  quantity: Int!
+  price: Float!
+}
+
+input RewardRedeemedInput {
+  rewardId: ID!
+  name: String!
+  value: Float!
+}
+
+type TransactionConnection {
+  items: [Transaction]!
+  nextToken: String
+}
+
 # AWS Scalar Types
 scalar AWSDateTime
+# Staff Management Types
+enum StaffRole {
+  BARISTA
+  MANAGER
+  OWNER
+}
+
+type StaffMember {
+  id: ID!
+  userId: ID!
+  shopId: ID!
+  role: StaffRole!
+  permissions: [String]!
+  isActive: Boolean!
+  user: User
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime
+}
+
+type StaffInvitation {
+  id: ID!
+  shopId: ID!
+  email: String!
+  role: StaffRole!
+  permissions: [String]!
+  status: String!
+  expiresAt: AWSDateTime!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime
+}
+
+input CreateStaffInvitationInput {
+  shopId: ID!
+  email: String!
+  role: StaffRole!
+  permissions: [String]!
+}
+
+input UpdateStaffMemberInput {
+  id: ID!
+  shopId: ID!
+  role: StaffRole
+  permissions: [String]
+  isActive: Boolean
+}
+
+type StaffMemberConnection {
+  items: [StaffMember]!
+  nextToken: String
+}
+
+type StaffInvitationConnection {
+  items: [StaffInvitation]!
+  nextToken: String
+}
+
+# Add to Query type
+extend type Query {
+  # Staff queries
+  getStaffMember(id: ID!): StaffMember
+  listStaffMembers(shopId: ID!, limit: Int, nextToken: String): StaffMemberConnection!
+  getStaffInvitation(id: ID!): StaffInvitation
+  listStaffInvitations(shopId: ID!, status: String, limit: Int, nextToken: String): StaffInvitationConnection!
+}
+
+# Add to Mutation type
+extend type Mutation {
+  # Staff mutations
+  createStaffInvitation(input: CreateStaffInvitationInput!): StaffInvitation!
+  acceptStaffInvitation(id: ID!): StaffMember!
+  updateStaffMember(input: UpdateStaffMemberInput!): StaffMember!
+  deleteStaffMember(id: ID!, shopId: ID!): StaffMember!
+  resendStaffInvitation(id: ID!): StaffInvitation!
+  cancelStaffInvitation(id: ID!): StaffInvitation!
+}

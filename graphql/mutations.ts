@@ -230,3 +230,110 @@ export const redeemRewardMutation = `
     }
   }
 `;
+// Transaction mutations
+export const createTransaction = /* GraphQL */ `
+  mutation CreateTransaction($input: CreateTransactionInput!) {
+    createTransaction(input: $input) {
+      id
+      userId
+      shopId
+      amount
+      items {
+        menuItemId
+        name
+        quantity
+        price
+      }
+      pointsEarned
+      stampsEarned
+      rewardRedeemed {
+        rewardId
+        name
+        value
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`;
+// Staff Management mutations
+export const createStaffInvitation = /* GraphQL */ `
+  mutation CreateStaffInvitation($input: CreateStaffInvitationInput!) {
+    createStaffInvitation(input: $input) {
+      id
+      shopId
+      email
+      role
+      permissions
+      status
+      expiresAt
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const acceptStaffInvitation = /* GraphQL */ `
+  mutation AcceptStaffInvitation($id: ID!) {
+    acceptStaffInvitation(id: $id) {
+      id
+      userId
+      shopId
+      role
+      permissions
+      isActive
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const updateStaffMember = /* GraphQL */ `
+  mutation UpdateStaffMember($input: UpdateStaffMemberInput!) {
+    updateStaffMember(input: $input) {
+      id
+      userId
+      shopId
+      role
+      permissions
+      isActive
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const deleteStaffMember = /* GraphQL */ `
+  mutation DeleteStaffMember($id: ID!, $shopId: ID!) {
+    deleteStaffMember(id: $id, shopId: $shopId) {
+      id
+      userId
+      shopId
+    }
+  }
+`;
+
+export const resendStaffInvitation = /* GraphQL */ `
+  mutation ResendStaffInvitation($id: ID!) {
+    resendStaffInvitation(id: $id) {
+      id
+      shopId
+      email
+      status
+      expiresAt
+      updatedAt
+    }
+  }
+`;
+
+export const cancelStaffInvitation = /* GraphQL */ `
+  mutation CancelStaffInvitation($id: ID!) {
+    cancelStaffInvitation(id: $id) {
+      id
+      shopId
+      email
+      status
+      updatedAt
+    }
+  }
+`;

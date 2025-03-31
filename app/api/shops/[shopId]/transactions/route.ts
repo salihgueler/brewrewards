@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Transaction } from '@/lib/types';
+import { Transaction, TransactionItem } from '@/lib/types';
 import { AccessUser, canAccessShop } from '@/lib/shop-access';
+import { generateClient } from '@aws-amplify/api';
+import { listTransactions, getTransaction, createTransaction } from '@/graphql/queries';
+import { v4 as uuidv4 } from 'uuid';
+
+const client = generateClient();
 
 /**
  * API endpoint to manage a shop's transactions
@@ -59,61 +64,44 @@ export async function GET(
       }
     }
     
-    // In a real implementation, this would fetch from a database with filtering
-    // For now, we'll return mock data
-    const transactions: Partial<Transaction>[] = [
-      {
-        id: 'txn_1',
-        userId: userId || 'user_1',
-        shopId,
-        amount: 12.50,
-        items: [
-          { menuItemId: 'item_1', quantity: 1, price: 4.50 },
-          { menuItemId: 'item_3', quantity: 2, price: 4.00 },
-        ],
-        pointsEarned: 12,
-        stampsEarned: 1,
-        createdAt: '2025-03-15T10:30:00Z',
-      },
-      {
-        id: 'txn_2',
-        userId: userId || 'user_1',
-        shopId,
-        amount: 8.75,
-        items: [
-          { menuItemId: 'item_2', quantity: 1, price: 4.00 },
-          { menuItemId: 'item_3', quantity: 1, price: 4.75 },
-        ],
-        pointsEarned: 8,
-        stampsEarned: 1,
-        createdAt: '2025-03-10T11:45:00Z',
-      },
-    ];
+    // Build variables for GraphQL query
+    const variables: any = {
+      shopId,
+      limit,
+      nextToken: page > 1 ? `page${page-1}` : null
+    };
     
-    // Apply date filters if provided
-    let filteredTransactions = transactions;
+    // Add filters if provided
+    if (userId) {
+      variables.userId = userId;
+    }
+    
     if (startDate) {
-      filteredTransactions = filteredTransactions.filter(
-        txn => txn.createdAt && txn.createdAt >= startDate
-      );
-    }
-    if (endDate) {
-      filteredTransactions = filteredTransactions.filter(
-        txn => txn.createdAt && txn.createdAt <= endDate
-      );
+      variables.startDate = startDate;
     }
     
-    // Paginate results
-    const paginatedTransactions = filteredTransactions.slice((page - 1) * limit, page * limit);
+    if (endDate) {
+      variables.endDate = endDate;
+    }
+    
+    // Query transactions from AppSync GraphQL API
+    const response = await client.graphql({
+      query: listTransactions,
+      variables
+    });
+    
+    const transactions = response.data.listTransactions.items;
+    const nextToken = response.data.listTransactions.nextToken;
     
     return NextResponse.json({
       success: true,
-      data: paginatedTransactions,
+      data: transactions,
       pagination: {
         page,
         limit,
-        total: filteredTransactions.length,
-        totalPages: Math.ceil(filteredTransactions.length / limit),
+        total: transactions.length + ((page - 1) * limit),
+        totalPages: nextToken ? page + 1 : page,
+        nextToken
       },
     });
   } catch (error) {
@@ -132,7 +120,7 @@ export async function POST(
 ) {
   try {
     const { shopId } = params;
-    const { userId, amount, items } = await req.json();
+    const { userId, amount, items, rewardRedeemed } = await req.json();
     
     // Get user from request headers (set by middleware)
     const requestUserId = req.headers.get('x-user-id');
@@ -181,17 +169,27 @@ export async function POST(
     const pointsEarned = Math.floor(amount);
     const stampsEarned = amount >= 5 ? 1 : 0;
     
-    // In a real implementation, this would save to a database
-    const transaction: Partial<Transaction> = {
-      id: `txn_${Date.now()}`,
+    // Create transaction in DynamoDB via AppSync
+    const transactionInput = {
+      id: uuidv4(),
       userId,
       shopId,
       amount,
       items,
       pointsEarned,
       stampsEarned,
-      createdAt: new Date().toISOString(),
+      rewardRedeemed,
+      createdAt: new Date().toISOString()
     };
+    
+    const response = await client.graphql({
+      query: createTransaction,
+      variables: {
+        input: transactionInput
+      }
+    });
+    
+    const transaction = response.data.createTransaction;
     
     return NextResponse.json({
       success: true,

@@ -156,3 +156,39 @@ export const STAFF_ROLE_PERMISSIONS = {
     Permission.ISSUE_REWARD,
   ],
 };
+// Staff management permissions
+export const MANAGE_STAFF = 'MANAGE_STAFF';
+export const VIEW_STAFF = 'VIEW_STAFF';
+
+// Add staff permissions to the permission map
+permissionMap.set('SUPER_ADMIN', [
+  ...permissionMap.get('SUPER_ADMIN') || [],
+  MANAGE_STAFF,
+  VIEW_STAFF
+]);
+
+permissionMap.set('SHOP_ADMIN', [
+  ...permissionMap.get('SHOP_ADMIN') || [],
+  MANAGE_STAFF,
+  VIEW_STAFF
+]);
+
+// Function to check if a user has staff permissions
+export function hasStaffPermission(user: User, permission: string, shopId?: string): boolean {
+  // Super admins have all permissions
+  if (user.role === 'SUPER_ADMIN') {
+    return true;
+  }
+  
+  // Shop admins have permissions for their own shop
+  if (user.role === 'SHOP_ADMIN' && user.shopId === shopId) {
+    return permissionMap.get('SHOP_ADMIN')?.includes(permission) || false;
+  }
+  
+  // Staff members have permissions based on their assigned permissions
+  if (user.role === 'STAFF' && user.shopId === shopId) {
+    return user.permissions?.includes(permission) || false;
+  }
+  
+  return false;
+}

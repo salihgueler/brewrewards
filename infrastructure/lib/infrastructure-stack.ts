@@ -24,6 +24,8 @@ export class BrewRewardsStack extends cdk.Stack {
   public readonly userRewardsTable: dynamodb.Table;
   public readonly menuTable: dynamodb.Table;
   public readonly favoritesTable: dynamodb.Table;
+  public readonly transactionsTable: dynamodb.Table;
+  public readonly staffTable: dynamodb.Table;
   public readonly imagesBucket: s3.Bucket;
   public readonly imagesCdn: cloudfront.Distribution;
 
@@ -196,6 +198,62 @@ export class BrewRewardsStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
+    // Transactions Table for storing customer transactions
+    this.transactionsTable = new dynamodb.Table(this, 'TransactionsTable', {
+      partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'SK', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Add GSI for user transactions lookup
+    this.transactionsTable.addGlobalSecondaryIndex({
+      indexName: 'UserTransactionsIndex',
+      partitionKey: { name: 'GSI1-PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'GSI1-SK', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    // Add GSI for shop transactions lookup
+    this.transactionsTable.addGlobalSecondaryIndex({
+      indexName: 'ShopTransactionsIndex',
+      partitionKey: { name: 'GSI2-PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'GSI2-SK', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    // Staff Management Table for storing staff members and invitations
+    this.staffTable = new dynamodb.Table(this, 'StaffTable', {
+      partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'SK', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Add GSI for shop staff lookup
+    this.staffTable.addGlobalSecondaryIndex({
+      indexName: 'ShopStaffIndex',
+      partitionKey: { name: 'GSI1-PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'GSI1-SK', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    // Add GSI for user staff lookup
+    this.staffTable.addGlobalSecondaryIndex({
+      indexName: 'UserStaffIndex',
+      partitionKey: { name: 'GSI2-PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'GSI2-SK', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    // Add GSI for staff invitations lookup
+    this.staffTable.addGlobalSecondaryIndex({
+      indexName: 'InvitationsIndex',
+      partitionKey: { name: 'GSI3-PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'GSI3-SK', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     // Cognito User Pool
     this.userPool = new cognito.UserPool(this, 'BrewRewardsUserPool', {
       selfSignUpEnabled: true,
@@ -288,6 +346,8 @@ export class BrewRewardsStack extends cdk.Stack {
     this.userRewardsTable.grantReadWriteData(appsyncDynamoDBRole);
     this.menuTable.grantReadWriteData(appsyncDynamoDBRole);
     this.favoritesTable.grantReadWriteData(appsyncDynamoDBRole);
+    this.transactionsTable.grantReadWriteData(appsyncDynamoDBRole);
+    this.staffTable.grantReadWriteData(appsyncDynamoDBRole);
 
     // Create DynamoDB data sources
     const shopsDS = this.graphqlApi.addDynamoDbDataSource('ShopsDataSource', this.shopsTable);
@@ -297,6 +357,8 @@ export class BrewRewardsStack extends cdk.Stack {
     const userRewardsDS = this.graphqlApi.addDynamoDbDataSource('UserRewardsDataSource', this.userRewardsTable);
     const menuDS = this.graphqlApi.addDynamoDbDataSource('MenuDataSource', this.menuTable);
     const favoritesDS = this.graphqlApi.addDynamoDbDataSource('FavoritesDataSource', this.favoritesTable);
+    const transactionsDS = this.graphqlApi.addDynamoDbDataSource('TransactionsDataSource', this.transactionsTable);
+    const staffDS = this.graphqlApi.addDynamoDbDataSource('StaffDataSource', this.staffTable);
 
     // Create IAM role for S3 presigned URLs
     const s3AccessRole = new iam.Role(this, 'S3AccessRole', {

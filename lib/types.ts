@@ -83,3 +83,82 @@ export interface User {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface TransactionItem {
+  menuItemId: string;
+  name?: string;
+  quantity: number;
+  price: number;
+}
+
+export interface Transaction {
+  id: string;
+  userId: string;
+  shopId: string;
+  amount: number;
+  items: TransactionItem[];
+  pointsEarned: number;
+  stampsEarned: number;
+  rewardRedeemed?: {
+    rewardId: string;
+    name: string;
+    value: number;
+  };
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateTransactionInput {
+  userId: string;
+  shopId: string;
+  amount: number;
+  items: TransactionItem[];
+  rewardRedeemed?: {
+    rewardId: string;
+    name: string;
+    value: number;
+  };
+}
+export enum StaffRole {
+  BARISTA = 'BARISTA',
+  MANAGER = 'MANAGER',
+  OWNER = 'OWNER',
+}
+
+export interface StaffMember {
+  id: string;
+  userId: string;
+  shopId: string;
+  role: StaffRole;
+  permissions: string[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface StaffInvitation {
+  id: string;
+  shopId: string;
+  email: string;
+  role: StaffRole;
+  permissions: string[];
+  status: 'PENDING' | 'ACCEPTED' | 'EXPIRED';
+  expiresAt: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateStaffInvitationInput {
+  shopId: string;
+  email: string;
+  role: StaffRole;
+  permissions: string[];
+}
+
+export interface UpdateStaffMemberInput {
+  id: string;
+  shopId: string;
+  role?: StaffRole;
+  permissions?: string[];
+  isActive?: boolean;
+}

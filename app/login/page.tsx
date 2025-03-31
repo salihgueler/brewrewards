@@ -10,7 +10,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { auth } from '@/lib/auth';
 import { CognitoUser } from 'amazon-cognito-identity-js';
-import { debugAuth } from '@/lib/debug-utils';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -147,11 +146,6 @@ export default function LoginPage() {
     }
   };
 
-  const runAuthDebug = async () => {
-    const result = await debugAuth();
-    alert(result);
-  };
-
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
       <Card className="w-full max-w-md">
@@ -250,14 +244,6 @@ export default function LoginPage() {
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? 'Signing in...' : 'Sign In'}
-              </Button>
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="w-full"
-                onClick={runAuthDebug}
-              >
-                Debug Auth
               </Button>
             </form>
           )}
