@@ -1,100 +1,127 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { auth, AuthUser } from './auth';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserRole } from './permissions';
+import { AuthUser, loginUser, logoutUser, getAuthenticatedUser, completeNewPassword } from './auth';
+import { useRouter } from 'next/navigation';
+import { configureAmplify } from './amplify-config';
 
-// Define the AuthContext type
+// Configure Amplify on the client side
+if (typeof window !== 'undefined') {
+  configureAmplify();
+}
+
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ newPasswordRequired: boolean; session: any }>;
+  completeNewPasswordChallenge: (session: any, newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
-  register: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
-  isAuthenticated: () => Promise<boolean>;
-  isAuthorized: (requiredRole: UserRole) => boolean;
+  isAuthorized: (role: UserRole) => boolean;
 }
 
-// Create the AuthContext
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Create the AuthProvider component
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
-  // Check if user is already logged in on mount
   useEffect(() => {
-    const checkAuth = async () => {
+    const loadUser = async () => {
       try {
-        const currentUser = await auth.getCurrentUser();
+        setIsLoading(true);
+        console.log('Loading user...');
+        
+        // Add a small delay to ensure Amplify is fully initialized
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const currentUser = await getAuthenticatedUser();
+        console.log('User loaded:', currentUser ? 'Success' : 'No user found');
         setUser(currentUser);
       } catch (error) {
-        console.error('Error checking authentication:', error);
+        console.error('Error loading user:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    checkAuth();
+    loadUser();
   }, []);
 
-  // Login function
   const login = async (email: string, password: string) => {
-    setIsLoading(true);
     try {
-      const user = await auth.signIn(email, password);
-      setUser(user);
-    } finally {
-      setIsLoading(false);
+      console.log('Starting login process...');
+      const { user, newPasswordRequired, session } = await loginUser(email, password);
+      
+      console.log('Login response:', { newPasswordRequired, user: user ? 'User exists' : 'No user' });
+      
+      if (!newPasswordRequired) {
+        setUser(user);
+      }
+      
+      return { newPasswordRequired, session };
+    } catch (error) {
+      console.error('Error during login:', error);
+      throw error;
     }
   };
 
-  // Logout function
+  const completeNewPasswordChallenge = async (session: any, newPassword: string) => {
+    try {
+      const user = await completeNewPassword(session, newPassword);
+      setUser(user);
+    } catch (error) {
+      console.error('Error completing new password challenge:', error);
+      throw error;
+    }
+  };
+
   const logout = async () => {
-    setIsLoading(true);
     try {
-      await auth.signOut();
+      await logoutUser();
       setUser(null);
-    } finally {
-      setIsLoading(false);
+      router.push('/login');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      throw error;
     }
   };
 
-  // Register function
-  const register = async (email: string, password: string, firstName: string, lastName: string) => {
-    setIsLoading(true);
-    try {
-      const user = await auth.signUp(email, password, firstName, lastName);
-      setUser(user);
-    } finally {
-      setIsLoading(false);
+  const isAuthorized = (role: UserRole) => {
+    if (!user) return false;
+    
+    // Super admin can access everything
+    if (user.role === UserRole.SUPER_ADMIN) return true;
+    
+    // Shop admin can access shop admin and customer pages
+    if (user.role === UserRole.SHOP_ADMIN) {
+      return role === UserRole.SHOP_ADMIN || role === UserRole.CUSTOMER;
     }
+    
+    // Shop staff can access shop staff and customer pages
+    if (user.role === UserRole.SHOP_STAFF) {
+      return role === UserRole.SHOP_STAFF || role === UserRole.CUSTOMER;
+    }
+    
+    // Customer can only access customer pages
+    return user.role === role;
   };
 
-  // Check if user is authenticated
-  const isAuthenticated = async () => {
-    return await auth.isAuthenticated();
-  };
-
-  // Create the context value
-  const value = {
-    user,
-    isLoading,
-    login,
-    logout,
-    register,
-    isAuthenticated,
-    isAuthorized: (requiredRole: UserRole) => {
-      if (!user) return false;
-      return user.role === requiredRole || (requiredRole === UserRole.SHOP_ADMIN && user.role === UserRole.SUPER_ADMIN);
-    },
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ 
+      user, 
+      isLoading, 
+      login, 
+      completeNewPasswordChallenge,
+      logout, 
+      isAuthorized 
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
-// Create a hook to use the AuthContext
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {

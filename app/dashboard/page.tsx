@@ -6,11 +6,14 @@ import { Coffee, Ticket, Award, Star, Clock, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { ErrorAlert } from '@/components/ui/error-alert';
 import { useAuth } from '@/lib/auth-context';
 import { UserRole } from '@/lib/permissions';
 import { useRouter } from 'next/navigation';
+import { isFeatureEnabled, FeatureFlag } from '@/lib/feature-flags';
 
-// Mock data interfaces
+// Data interfaces
 interface ShopReward {
   shopId: string;
   shopName: string;
@@ -46,18 +49,41 @@ export default function CustomerDashboardPage() {
   const [rewards, setRewards] = useState<ShopReward[]>([]);
   const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Check authorization
-    if (!isLoading && !isAuthorized(UserRole.CUSTOMER)) {
-      router.push('/login');
-      return;
-    }
-
-    // Fetch customer rewards and activities - in a real app, this would be API calls
-    const fetchCustomerData = async () => {
-      try {
-        // Mock data - replace with actual API calls
+  const fetchCustomerData = async () => {
+    setIsLoadingData(true);
+    setError(null);
+    
+    try {
+      // Check if we should use real API
+      if (isFeatureEnabled(FeatureFlag.USE_REAL_API)) {
+        try {
+          // Fetch rewards from API
+          const rewardsResponse = await fetch('/api/users/rewards');
+          if (!rewardsResponse.ok) {
+            throw new Error(`Failed to fetch rewards: ${rewardsResponse.statusText}`);
+          }
+          const rewardsData = await rewardsResponse.json();
+          
+          // Fetch activities from API
+          const activitiesResponse = await fetch('/api/users/activities');
+          if (!activitiesResponse.ok) {
+            throw new Error(`Failed to fetch activities: ${activitiesResponse.statusText}`);
+          }
+          const activitiesData = await activitiesResponse.json();
+          
+          setRewards(rewardsData.data);
+          setActivities(activitiesData.data.sort((a: RecentActivity, b: RecentActivity) => 
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+          ));
+        } catch (apiError) {
+          console.error('API error:', apiError);
+          // Fall through to mock data if API fails
+          throw apiError;
+        }
+      } else {
+        // Use mock data
         const mockRewards: ShopReward[] = [
           {
             shopId: '1',
@@ -161,18 +187,30 @@ export default function CustomerDashboardPage() {
         ];
         
         setRewards(mockRewards);
-        setActivities(activities => [...mockActivities].sort((a, b) => 
+        setActivities([...mockActivities].sort((a, b) => 
           new Date(b.date).getTime() - new Date(a.date).getTime()
         ));
-        setIsLoadingData(false);
-      } catch (error) {
-        console.error('Error fetching customer data:', error);
-        setIsLoadingData(false);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching customer data:', error);
+      setError('Failed to load your rewards and activities. Please try again.');
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
 
-    fetchCustomerData();
-  }, [isAuthorized, isLoading, router]);
+  useEffect(() => {
+    // Check authorization
+    if (!isLoading && !isAuthorized(UserRole.CUSTOMER)) {
+      router.push('/login');
+      return;
+    }
+
+    // Fetch customer rewards and activities
+    if (!isLoading && user) {
+      fetchCustomerData();
+    }
+  }, [isAuthorized, isLoading, router, user]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -184,8 +222,13 @@ export default function CustomerDashboardPage() {
     });
   };
 
+  // Show loading state while checking authentication
   if (isLoading) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>;
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <LoadingSpinner size="lg" text="Loading..." />
+      </div>
+    );
   }
 
   return (
@@ -203,12 +246,25 @@ export default function CustomerDashboardPage() {
         </Link>
       </div>
 
+      {/* Show error message if there was an error */}
+      {error && (
+        <ErrorAlert 
+          message={error} 
+          onRetry={fetchCustomerData} 
+          className="mb-6"
+        />
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <h2 className="text-xl font-semibold mb-4">Your Rewards</h2>
           
           {isLoadingData ? (
-            <div className="flex justify-center items-center h-64">Loading rewards...</div>
+            <Card>
+              <CardContent className="flex justify-center items-center py-12">
+                <LoadingSpinner text="Loading rewards..." />
+              </CardContent>
+            </Card>
           ) : rewards.length === 0 ? (
             <Card>
               <CardContent className="text-center py-12">
@@ -300,7 +356,11 @@ export default function CustomerDashboardPage() {
                               </div>
                               <div className="flex items-center">
                                 <span className="text-sm font-bold mr-2">{reward.pointsRequired} pts</span>
-                                <Button variant="outline" size="sm" disabled={shopReward.points < reward.pointsRequired}>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  disabled={shopReward.points < reward.pointsRequired}
+                                >
                                   Redeem
                                 </Button>
                               </div>
@@ -320,7 +380,11 @@ export default function CustomerDashboardPage() {
           <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
           
           {isLoadingData ? (
-            <div className="flex justify-center items-center h-64">Loading activity...</div>
+            <Card>
+              <CardContent className="flex justify-center items-center py-12">
+                <LoadingSpinner text="Loading activity..." />
+              </CardContent>
+            </Card>
           ) : activities.length === 0 ? (
             <Card>
               <CardContent className="text-center py-12">

@@ -3,6 +3,8 @@
 import { useState, useRef } from 'react';
 import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Button } from './button';
+import { uploadFileToS3 } from '@/lib/s3-upload';
+import { isFeatureEnabled, FeatureFlag } from '@/lib/feature-flags';
 
 interface ImageUploadProps {
   shopId: string;
@@ -46,23 +48,44 @@ export function ImageUpload({
       const localPreview = URL.createObjectURL(file);
       setImage(localPreview);
 
-      // In a real app, we would upload to S3 here
-      // For now, we'll just simulate a successful upload
-      setTimeout(() => {
-        // Mock successful upload
-        const mockImageKey = `${shopId}/images/${Date.now()}-${file.name}`;
-        const mockImageUrl = localPreview;
-        
-        // Call the callback with the uploaded image URL and key
-        onImageUploaded(mockImageUrl, mockImageKey);
-        setIsUploading(false);
-      }, 1500);
+      // Check if we should use real S3 upload
+      if (isFeatureEnabled(FeatureFlag.USE_REAL_S3)) {
+        try {
+          // Upload to S3
+          const imageUrl = await uploadFileToS3(file, shopId);
+          const imageKey = imageUrl.split('/').slice(-2).join('/'); // Extract the key from the URL
+          
+          // Call the callback with the uploaded image URL and key
+          onImageUploaded(imageUrl, imageKey);
+          setIsUploading(false);
+        } catch (uploadError) {
+          console.error('Error uploading to S3:', uploadError);
+          
+          // Fallback to mock upload
+          console.log('Falling back to mock upload');
+          simulateMockUpload(file, localPreview);
+        }
+      } else {
+        // Use mock upload
+        simulateMockUpload(file, localPreview);
+      }
     } catch (err) {
       console.error('Error uploading image:', err);
       setError('Failed to upload image. Please try again.');
       setImage(null);
       setIsUploading(false);
     }
+  };
+
+  const simulateMockUpload = (file: File, localPreview: string) => {
+    // Mock successful upload
+    setTimeout(() => {
+      const mockImageKey = `${shopId}/images/${Date.now()}-${file.name}`;
+      
+      // Call the callback with the uploaded image URL and key
+      onImageUploaded(localPreview, mockImageKey);
+      setIsUploading(false);
+    }, 1500);
   };
 
   const handleButtonClick = () => {

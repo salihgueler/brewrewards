@@ -1,50 +1,75 @@
-// Mock S3 upload functionality for development
-
-// Interface for the upload result
-export interface UploadResult {
-  key: string;
-  url: string;
-}
+import { Storage } from 'aws-amplify';
+import { generateUploadUrl } from './graphql-client';
+import { awsConfig } from './aws-config';
 
 /**
- * Mock function to simulate uploading a file to S3
- * 
+ * Upload a file to S3 using a presigned URL
  * @param file The file to upload
- * @param shopId The ID of the shop the file belongs to
- * @returns The key and URL of the uploaded file
+ * @param shopId The shop ID
+ * @returns The URL of the uploaded file
  */
-export async function uploadImageToS3(file: File, shopId: string): Promise<UploadResult> {
-  // Create a local URL for the file
-  const localUrl = URL.createObjectURL(file);
-  
-  // Generate a mock S3 key
-  const timestamp = new Date().getTime();
-  const key = `${shopId}/images/${timestamp}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '')}`;
-  
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  return {
-    key,
-    url: localUrl,
-  };
+export async function uploadFileToS3(file: File, shopId: string): Promise<string> {
+  try {
+    // Generate a unique file name
+    const fileExtension = file.name.split('.').pop();
+    const uniqueFileName = `${shopId}/${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExtension}`;
+    
+    // Get a presigned URL from AppSync
+    const { uploadUrl, key } = await generateUploadUrl(shopId, uniqueFileName, file.type);
+    
+    // Upload the file using the presigned URL
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type,
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to upload file: ${response.statusText}`);
+    }
+    
+    // Return the public URL of the file
+    return `https://${awsConfig.s3BucketDomainName}/${key}`;
+  } catch (error) {
+    console.error('Error uploading file to S3:', error);
+    throw error;
+  }
 }
 
 /**
- * Gets the public URL for an S3 object
- * 
- * @param key The S3 object key
- * @returns The public URL for the object
+ * Upload a file to S3 using Amplify Storage
+ * This is an alternative method that uses Amplify Storage directly
+ * @param file The file to upload
+ * @param shopId The shop ID
+ * @returns The key of the uploaded file
  */
-export function getImageUrl(key: string | null | undefined): string {
-  if (!key) return '';
-  
-  // If the key is already a full URL, return it
-  if (key.startsWith('http') || key.startsWith('blob:')) {
-    return key;
+export async function uploadFileWithAmplify(file: File, shopId: string): Promise<string> {
+  try {
+    // Generate a unique file name
+    const fileExtension = file.name.split('.').pop();
+    const key = `${shopId}/${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExtension}`;
+    
+    // Upload the file using Amplify Storage
+    const result = await Storage.put(key, file, {
+      contentType: file.type,
+      level: 'public',
+    });
+    
+    // Return the key of the uploaded file
+    return result.key;
+  } catch (error) {
+    console.error('Error uploading file with Amplify Storage:', error);
+    throw error;
   }
-  
-  // In a real app, we would construct the S3 URL here
-  // For now, return a placeholder
-  return `https://placehold.co/600x400?text=${encodeURIComponent(key)}`;
+}
+
+/**
+ * Get the public URL of a file in S3
+ * @param key The key of the file
+ * @returns The public URL of the file
+ */
+export function getPublicUrl(key: string): string {
+  return `https://${awsConfig.s3BucketDomainName}/${key}`;
 }

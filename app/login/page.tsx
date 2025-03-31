@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { auth } from '@/lib/auth';
 import { CognitoUser } from 'amazon-cognito-identity-js';
+import { debugAuth } from '@/lib/debug-utils';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,7 +40,22 @@ export default function LoginPage() {
     setError(null);
 
     try {
+      console.log('Starting login with:', identifier);
       const user = await auth.signIn(identifier, password);
+      console.log('Login successful, user:', user);
+      
+      // Check if new password is required
+      if (user.newPasswordRequired) {
+        console.log('New password required, setting up challenge form');
+        setShowNewPasswordForm(true);
+        setChallengeData({
+          username: user.email,
+          userAttributes: {},
+          cognitoUser: user.cognitoUser
+        });
+        setIsLoading(false);
+        return;
+      }
       
       // If there's a redirect parameter, use it
       if (redirectTo) {
@@ -61,6 +77,8 @@ export default function LoginPage() {
         }
       }
     } catch (err: any) {
+      console.error('Login error details:', err);
+      
       // Handle specific Cognito error messages
       if (err.code === 'UserNotConfirmedException') {
         // Determine which confirmation page to use based on the userType parameter
@@ -74,19 +92,9 @@ export default function LoginPage() {
         setError('Incorrect username or password.');
       } else if (err.code === 'UserNotFoundException') {
         setError('Account not found. Please check your credentials or sign up.');
-      } else if (err.code === 'NewPasswordRequiredException') {
-        // Handle new password required challenge
-        setShowNewPasswordForm(true);
-        setChallengeData({
-          username: err.username,
-          userAttributes: err.userAttributes || {},
-          cognitoUser: err.cognitoUser
-        });
-        setError(null);
       } else {
         setError(err.message || 'An error occurred during sign in. Please try again.');
       }
-      console.error('Login error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -110,6 +118,8 @@ export default function LoginPage() {
     setError(null);
     
     try {
+      console.log('Completing new password challenge for:', challengeData.username);
+      
       // Complete the new password challenge
       // We're passing an empty object for userAttributes to avoid modifying any attributes
       const user = await auth.completeNewPasswordChallenge(
@@ -118,6 +128,8 @@ export default function LoginPage() {
         {}, // Empty object to avoid modifying any attributes
         challengeData.cognitoUser
       );
+      
+      console.log('New password challenge completed, user:', user);
       
       // Redirect based on user role
       if (user.role === 'SUPER_ADMIN') {
@@ -128,11 +140,16 @@ export default function LoginPage() {
         router.push('/dashboard');
       }
     } catch (err: any) {
+      console.error('New password error details:', err);
       setError(err.message || 'Failed to set new password. Please try again.');
-      console.error('New password error:', err);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const runAuthDebug = async () => {
+    const result = await debugAuth();
+    alert(result);
   };
 
   return (
@@ -233,6 +250,14 @@ export default function LoginPage() {
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? 'Signing in...' : 'Sign In'}
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="w-full"
+                onClick={runAuthDebug}
+              >
+                Debug Auth
               </Button>
             </form>
           )}

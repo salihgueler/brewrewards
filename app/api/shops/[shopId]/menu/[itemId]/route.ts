@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MenuItem } from '@/lib/types';
 import { AccessUser, canAccessShop, canModifyShop } from '@/lib/shop-access';
+import { executeQuery, executeMutation } from '@/lib/graphql-client';
+import { getMenuItemQuery } from '@/graphql/queries';
+import { updateMenuItemMutation, deleteMenuItemMutation } from '@/graphql/mutations';
 
 /**
  * API endpoint to manage a specific menu item
@@ -41,25 +44,26 @@ export async function GET(
       );
     }
     
-    // In a real implementation, this would fetch from a database
-    // For now, we'll return mock data
-    const menuItem: Partial<MenuItem> = {
-      id: itemId,
-      shopId,
-      name: 'Cappuccino',
-      description: 'Espresso with steamed milk and foam',
-      price: 4.50,
-      category: 'Coffee',
-      isAvailable: true,
-      tags: ['hot', 'popular'],
-      createdAt: '2025-01-01T00:00:00Z',
-      updatedAt: '2025-01-01T00:00:00Z',
-    };
-    
-    return NextResponse.json({
-      success: true,
-      data: menuItem,
-    });
+    try {
+      // Fetch menu item from GraphQL API
+      const result = await executeQuery<{ getMenuItem: MenuItem }>(
+        getMenuItemQuery,
+        { shopId, id: itemId }
+      );
+      
+      return NextResponse.json({
+        success: true,
+        data: result.getMenuItem,
+      });
+    } catch (error) {
+      console.error('Error fetching menu item from GraphQL:', error);
+      
+      // If GraphQL query fails, return a more specific error
+      return NextResponse.json(
+        { error: 'Failed to retrieve menu item. The item may not exist or there was a server error.' },
+        { status: 404 }
+      );
+    }
   } catch (error) {
     console.error('Error fetching menu item:', error);
     return NextResponse.json(
@@ -76,7 +80,7 @@ export async function PUT(
 ) {
   try {
     const { shopId, itemId } = params;
-    const { name, description, price, category, tags, isAvailable } = await req.json();
+    const { name, description, price, category, image, imageKey, isAvailable, allergens, nutritionalInfo } = await req.json();
     
     // Get user from request headers (set by middleware)
     const userId = req.headers.get('x-user-id');
@@ -112,24 +116,39 @@ export async function PUT(
       );
     }
     
-    // In a real implementation, this would update in a database
-    const updatedMenuItem: Partial<MenuItem> = {
-      id: itemId,
-      shopId,
-      name,
-      description,
-      price,
-      category,
-      tags: tags || [],
-      isAvailable: isAvailable !== undefined ? isAvailable : true,
-      updatedAt: new Date().toISOString(),
-    };
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Menu item updated successfully',
-      data: updatedMenuItem,
-    });
+    try {
+      // Update menu item via GraphQL API
+      const input = {
+        id: itemId,
+        shopId,
+        name,
+        description,
+        price,
+        category,
+        image,
+        imageKey,
+        isAvailable: isAvailable !== undefined ? isAvailable : true,
+        allergens,
+        nutritionalInfo
+      };
+      
+      const result = await executeMutation<{ updateMenuItem: MenuItem }>(
+        updateMenuItemMutation,
+        { input }
+      );
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Menu item updated successfully',
+        data: result.updateMenuItem,
+      });
+    } catch (error) {
+      console.error('Error updating menu item via GraphQL:', error);
+      return NextResponse.json(
+        { error: 'Failed to update menu item. The item may not exist or there was a server error.' },
+        { status: 404 }
+      );
+    }
   } catch (error) {
     console.error('Error updating menu item:', error);
     return NextResponse.json(
@@ -173,12 +192,24 @@ export async function DELETE(
       );
     }
     
-    // In a real implementation, this would delete from a database
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Menu item deleted successfully',
-    });
+    try {
+      // Delete menu item via GraphQL API
+      await executeMutation(
+        deleteMenuItemMutation,
+        { shopId, id: itemId }
+      );
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Menu item deleted successfully',
+      });
+    } catch (error) {
+      console.error('Error deleting menu item via GraphQL:', error);
+      return NextResponse.json(
+        { error: 'Failed to delete menu item. The item may not exist or there was a server error.' },
+        { status: 404 }
+      );
+    }
   } catch (error) {
     console.error('Error deleting menu item:', error);
     return NextResponse.json(

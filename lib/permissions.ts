@@ -1,168 +1,158 @@
 /**
- * Permissions system for BrewRewards
- * Defines what actions different user roles can perform
+ * User roles in the system
  */
-
 export enum UserRole {
-  CUSTOMER = 'CUSTOMER',
-  SHOP_ADMIN = 'SHOP_ADMIN',
   SUPER_ADMIN = 'SUPER_ADMIN',
+  SHOP_ADMIN = 'SHOP_ADMIN',
+  SHOP_STAFF = 'SHOP_STAFF',
+  CUSTOMER = 'CUSTOMER',
 }
 
-export interface Permission {
+/**
+ * Permission types for different actions
+ */
+export enum Permission {
   // Shop permissions
-  viewShops: boolean;
-  viewAllShops: boolean;
-  createShop: boolean;
-  updateShop: boolean;
-  deleteShop: boolean;
+  CREATE_SHOP = 'CREATE_SHOP',
+  READ_SHOP = 'READ_SHOP',
+  UPDATE_SHOP = 'UPDATE_SHOP',
+  DELETE_SHOP = 'DELETE_SHOP',
   
   // Menu permissions
-  viewMenu: boolean;
-  createMenuItem: boolean;
-  updateMenuItem: boolean;
-  deleteMenuItem: boolean;
+  CREATE_MENU_ITEM = 'CREATE_MENU_ITEM',
+  READ_MENU_ITEM = 'READ_MENU_ITEM',
+  UPDATE_MENU_ITEM = 'UPDATE_MENU_ITEM',
+  DELETE_MENU_ITEM = 'DELETE_MENU_ITEM',
   
   // Loyalty program permissions
-  viewLoyaltyPrograms: boolean;
-  createLoyaltyProgram: boolean;
-  updateLoyaltyProgram: boolean;
-  deleteLoyaltyProgram: boolean;
+  CREATE_LOYALTY_PROGRAM = 'CREATE_LOYALTY_PROGRAM',
+  READ_LOYALTY_PROGRAM = 'READ_LOYALTY_PROGRAM',
+  UPDATE_LOYALTY_PROGRAM = 'UPDATE_LOYALTY_PROGRAM',
+  DELETE_LOYALTY_PROGRAM = 'DELETE_LOYALTY_PROGRAM',
   
-  // Customer permissions
-  joinLoyaltyProgram: boolean;
-  earnRewards: boolean;
-  redeemRewards: boolean;
-  viewOwnRewards: boolean;
+  // User permissions
+  CREATE_USER = 'CREATE_USER',
+  READ_USER = 'READ_USER',
+  UPDATE_USER = 'UPDATE_USER',
+  DELETE_USER = 'DELETE_USER',
   
-  // User management
-  viewUsers: boolean;
-  viewAllUsers: boolean;
-  createUser: boolean;
-  updateUser: boolean;
-  deleteUser: boolean;
+  // Transaction permissions
+  CREATE_TRANSACTION = 'CREATE_TRANSACTION',
+  READ_TRANSACTION = 'READ_TRANSACTION',
+  
+  // Reward permissions
+  REDEEM_REWARD = 'REDEEM_REWARD',
+  ISSUE_REWARD = 'ISSUE_REWARD',
 }
 
-// Define permissions for each role
-const permissions: Record<UserRole, Permission> = {
-  [UserRole.CUSTOMER]: {
-    // Shop permissions
-    viewShops: true,
-    viewAllShops: false,
-    createShop: false,
-    updateShop: false,
-    deleteShop: false,
-    
-    // Menu permissions
-    viewMenu: true,
-    createMenuItem: false,
-    updateMenuItem: false,
-    deleteMenuItem: false,
-    
-    // Loyalty program permissions
-    viewLoyaltyPrograms: true,
-    createLoyaltyProgram: false,
-    updateLoyaltyProgram: false,
-    deleteLoyaltyProgram: false,
-    
-    // Customer permissions
-    joinLoyaltyProgram: true,
-    earnRewards: true,
-    redeemRewards: true,
-    viewOwnRewards: true,
-    
-    // User management
-    viewUsers: false,
-    viewAllUsers: false,
-    createUser: false,
-    updateUser: false,
-    deleteUser: false,
-  },
+/**
+ * Role-based permissions mapping
+ */
+export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  [UserRole.SUPER_ADMIN]: Object.values(Permission),
   
-  [UserRole.SHOP_ADMIN]: {
-    // Shop permissions
-    viewShops: true,
-    viewAllShops: false,
-    createShop: false,
-    updateShop: true, // Can update their own shop
-    deleteShop: false,
+  [UserRole.SHOP_ADMIN]: [
+    // Shop permissions (only their own shop)
+    Permission.READ_SHOP,
+    Permission.UPDATE_SHOP,
     
     // Menu permissions
-    viewMenu: true,
-    createMenuItem: true,
-    updateMenuItem: true,
-    deleteMenuItem: true,
+    Permission.CREATE_MENU_ITEM,
+    Permission.READ_MENU_ITEM,
+    Permission.UPDATE_MENU_ITEM,
+    Permission.DELETE_MENU_ITEM,
     
     // Loyalty program permissions
-    viewLoyaltyPrograms: true,
-    createLoyaltyProgram: true,
-    updateLoyaltyProgram: true,
-    deleteLoyaltyProgram: true,
+    Permission.CREATE_LOYALTY_PROGRAM,
+    Permission.READ_LOYALTY_PROGRAM,
+    Permission.UPDATE_LOYALTY_PROGRAM,
+    Permission.DELETE_LOYALTY_PROGRAM,
     
-    // Customer permissions
-    joinLoyaltyProgram: false,
-    earnRewards: false,
-    redeemRewards: false,
-    viewOwnRewards: false,
+    // User permissions (only for their shop's users)
+    Permission.CREATE_USER,
+    Permission.READ_USER,
+    Permission.UPDATE_USER,
     
-    // User management
-    viewUsers: true, // Can view users of their shop
-    viewAllUsers: false,
-    createUser: true, // Can create staff accounts
-    updateUser: true, // Can update staff accounts
-    deleteUser: true, // Can delete staff accounts
-  },
+    // Transaction permissions
+    Permission.CREATE_TRANSACTION,
+    Permission.READ_TRANSACTION,
+    
+    // Reward permissions
+    Permission.ISSUE_REWARD,
+  ],
   
-  [UserRole.SUPER_ADMIN]: {
+  [UserRole.SHOP_STAFF]: [
     // Shop permissions
-    viewShops: true,
-    viewAllShops: true,
-    createShop: true,
-    updateShop: true,
-    deleteShop: true,
+    Permission.READ_SHOP,
     
     // Menu permissions
-    viewMenu: true,
-    createMenuItem: true,
-    updateMenuItem: true,
-    deleteMenuItem: true,
+    Permission.READ_MENU_ITEM,
     
     // Loyalty program permissions
-    viewLoyaltyPrograms: true,
-    createLoyaltyProgram: true,
-    updateLoyaltyProgram: true,
-    deleteLoyaltyProgram: true,
+    Permission.READ_LOYALTY_PROGRAM,
     
-    // Customer permissions
-    joinLoyaltyProgram: false,
-    earnRewards: false,
-    redeemRewards: false,
-    viewOwnRewards: false,
+    // User permissions (limited)
+    Permission.READ_USER,
     
-    // User management
-    viewUsers: true,
-    viewAllUsers: true,
-    createUser: true,
-    updateUser: true,
-    deleteUser: true,
-  },
+    // Transaction permissions
+    Permission.CREATE_TRANSACTION,
+    Permission.READ_TRANSACTION,
+    
+    // Reward permissions
+    Permission.ISSUE_REWARD,
+  ],
+  
+  [UserRole.CUSTOMER]: [
+    // Shop permissions
+    Permission.READ_SHOP,
+    
+    // Menu permissions
+    Permission.READ_MENU_ITEM,
+    
+    // Loyalty program permissions
+    Permission.READ_LOYALTY_PROGRAM,
+    
+    // Reward permissions
+    Permission.REDEEM_REWARD,
+  ],
 };
 
 /**
- * Check if a user has a specific permission
- * @param userRole The role of the user
- * @param permission The permission to check
- * @returns boolean indicating if the user has the permission
+ * Staff role permissions for different staff roles within a shop
  */
-export function hasPermission(userRole: UserRole, permission: keyof Permission): boolean {
-  return permissions[userRole][permission];
-}
-
-/**
- * Get all permissions for a specific role
- * @param userRole The role to get permissions for
- * @returns The permission object for the role
- */
-export function getRolePermissions(userRole: UserRole): Permission {
-  return permissions[userRole];
-}
+export const STAFF_ROLE_PERMISSIONS = {
+  MANAGER: [
+    Permission.READ_SHOP,
+    Permission.UPDATE_SHOP,
+    Permission.CREATE_MENU_ITEM,
+    Permission.READ_MENU_ITEM,
+    Permission.UPDATE_MENU_ITEM,
+    Permission.DELETE_MENU_ITEM,
+    Permission.CREATE_LOYALTY_PROGRAM,
+    Permission.READ_LOYALTY_PROGRAM,
+    Permission.UPDATE_LOYALTY_PROGRAM,
+    Permission.READ_USER,
+    Permission.CREATE_TRANSACTION,
+    Permission.READ_TRANSACTION,
+    Permission.ISSUE_REWARD,
+  ],
+  
+  BARISTA: [
+    Permission.READ_SHOP,
+    Permission.READ_MENU_ITEM,
+    Permission.READ_LOYALTY_PROGRAM,
+    Permission.READ_USER,
+    Permission.CREATE_TRANSACTION,
+    Permission.READ_TRANSACTION,
+    Permission.ISSUE_REWARD,
+  ],
+  
+  CASHIER: [
+    Permission.READ_SHOP,
+    Permission.READ_MENU_ITEM,
+    Permission.READ_LOYALTY_PROGRAM,
+    Permission.CREATE_TRANSACTION,
+    Permission.READ_TRANSACTION,
+    Permission.ISSUE_REWARD,
+  ],
+};

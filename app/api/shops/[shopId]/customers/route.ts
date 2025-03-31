@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { User, UserLoyalty } from '@/lib/types';
 import { AccessUser, canAccessShop } from '@/lib/shop-access';
+import { executeQuery } from '@/lib/graphql-client';
+import { listUsersQuery, getUserRewardQuery } from '@/graphql/queries';
+import { isFeatureEnabled, FeatureFlag } from '@/lib/feature-flags';
 
 /**
  * API endpoint to manage a shop's customers
@@ -18,6 +21,7 @@ export async function GET(
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
+    const nextToken = searchParams.get('nextToken') || undefined;
     
     // Get user from request headers (set by middleware)
     const userId = req.headers.get('x-user-id');
@@ -45,55 +49,125 @@ export async function GET(
       );
     }
     
-    // In a real implementation, this would fetch from a database with filtering
-    // For now, we'll return mock data
+    if (isFeatureEnabled(FeatureFlag.USE_REAL_API)) {
+      try {
+        // Fetch users with role CUSTOMER
+        const usersResult = await executeQuery<{ listUsers: { items: User[], nextToken?: string } }>(
+          listUsersQuery,
+          { shopId, limit, nextToken }
+        );
+        
+        // Filter by search term if provided
+        let filteredUsers = usersResult.listUsers.items.filter(user => user.role === 'CUSTOMER');
+        
+        if (search) {
+          filteredUsers = filteredUsers.filter(user => 
+            user.firstName.toLowerCase().includes(search.toLowerCase()) ||
+            user.lastName.toLowerCase().includes(search.toLowerCase()) ||
+            user.email.toLowerCase().includes(search.toLowerCase())
+          );
+        }
+        
+        // Fetch loyalty data for each customer
+        const customersWithLoyalty = await Promise.all(
+          filteredUsers.map(async (user) => {
+            try {
+              const loyaltyResult = await executeQuery<{ getUserReward: UserLoyalty }>(
+                getUserRewardQuery,
+                { userId: user.id, shopId }
+              );
+              
+              return {
+                ...user,
+                name: `${user.firstName} ${user.lastName}`,
+                loyalty: loyaltyResult.getUserReward
+              };
+            } catch (error) {
+              // If no loyalty data found, return user without loyalty
+              return {
+                ...user,
+                name: `${user.firstName} ${user.lastName}`
+              };
+            }
+          })
+        );
+        
+        // Paginate results
+        const paginatedCustomers = customersWithLoyalty.slice((page - 1) * limit, page * limit);
+        
+        return NextResponse.json({
+          success: true,
+          data: paginatedCustomers,
+          pagination: {
+            page,
+            limit,
+            total: filteredUsers.length,
+            totalPages: Math.ceil(filteredUsers.length / limit),
+          },
+          nextToken: usersResult.listUsers.nextToken
+        });
+      } catch (graphqlError) {
+        console.error('GraphQL error fetching customers:', graphqlError);
+        // Fall through to mock data if GraphQL fails
+      }
+    }
+    
+    // Fallback to mock data
     const customers: Array<Partial<User> & { loyalty?: Partial<UserLoyalty> }> = [
       {
         id: 'user_1',
         email: 'john@example.com',
+        firstName: 'John',
+        lastName: 'Doe',
         name: 'John Doe',
         role: 'CUSTOMER',
         createdAt: '2025-01-15T00:00:00Z',
         updatedAt: '2025-01-15T00:00:00Z',
         loyalty: {
-          id: 'loyalty_1',
           userId: 'user_1',
           shopId,
-          loyaltyProgramId: 'program_1',
           points: 320,
-          stamps: 0,
+          stamps: [{
+            cardId: 'program_2',
+            currentStamps: 6,
+            lastStampDate: '2025-03-15T00:00:00Z'
+          }],
         },
       },
       {
         id: 'user_2',
         email: 'sarah@example.com',
+        firstName: 'Sarah',
+        lastName: 'Miller',
         name: 'Sarah Miller',
         role: 'CUSTOMER',
         createdAt: '2025-02-03T00:00:00Z',
         updatedAt: '2025-02-03T00:00:00Z',
         loyalty: {
-          id: 'loyalty_2',
           userId: 'user_2',
           shopId,
-          loyaltyProgramId: 'program_1',
           points: 450,
-          stamps: 0,
+          stamps: [],
         },
       },
       {
         id: 'user_3',
         email: 'robert@example.com',
+        firstName: 'Robert',
+        lastName: 'Kim',
         name: 'Robert Kim',
         role: 'CUSTOMER',
         createdAt: '2025-02-28T00:00:00Z',
         updatedAt: '2025-02-28T00:00:00Z',
         loyalty: {
-          id: 'loyalty_3',
           userId: 'user_3',
           shopId,
-          loyaltyProgramId: 'program_2',
           points: 0,
-          stamps: 6,
+          stamps: [{
+            cardId: 'program_2',
+            currentStamps: 6,
+            lastStampDate: '2025-03-20T00:00:00Z'
+          }],
         },
       },
     ];
@@ -118,6 +192,7 @@ export async function GET(
         total: filteredCustomers.length,
         totalPages: Math.ceil(filteredCustomers.length / limit),
       },
+      isMockData: !isFeatureEnabled(FeatureFlag.USE_REAL_API)
     });
   } catch (error) {
     console.error('Error fetching customers:', error);

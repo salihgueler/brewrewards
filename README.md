@@ -17,6 +17,7 @@ BrewRewards is a comprehensive multi-tenant loyalty and rewards platform designe
 - [Development](#development)
 - [Deployment](#deployment)
 - [Resource Management](#resource-management)
+- [Implementation Status](#implementation-status)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -209,6 +210,11 @@ brewrewards/
 │   ├── shops/              # Shop-specific pages
 │   └── super-admin/        # Platform admin pages
 ├── components/             # Reusable React components
+│   ├── ui/                 # UI components (buttons, cards, etc.)
+│   └── ...                 # Feature-specific components
+├── graphql/                # GraphQL queries and mutations
+│   ├── queries.ts          # GraphQL query definitions
+│   └── mutations.ts        # GraphQL mutation definitions
 ├── infrastructure/         # AWS CDK infrastructure code
 │   ├── bin/                # CDK app entry point
 │   ├── lib/                # Stack definitions
@@ -216,6 +222,8 @@ brewrewards/
 ├── lib/                    # Utility functions and shared code
 │   ├── auth.ts             # Authentication utilities
 │   ├── auth-context.tsx    # Authentication context provider
+│   ├── graphql-client.ts   # GraphQL client for AWS AppSync
+│   ├── hooks/              # Custom React hooks
 │   ├── permissions.ts      # Role-based permissions system
 │   └── aws-config.ts       # AWS configuration
 ├── public/                 # Static assets
@@ -293,7 +301,7 @@ The GraphQL API provides the following main operations:
 
 ### Local Development
 
-For local development, you must have valid AWS credentials configured. The application does not use mock data and requires proper AWS services to be set up.
+For local development, you must have valid AWS credentials configured. The application uses real AWS services for data operations.
 
 1. Run the development server:
    ```bash
@@ -360,6 +368,48 @@ npm run destroy
 This will remove all AWS resources and prevent further charges.
 
 For detailed information about resource management, see [Resource Management Documentation](docs/resource-management.md).
+
+## Implementation Status
+
+The project has been updated to use real AWS services for core functionality. Here's the current implementation status:
+
+### Implemented with Real AWS Services
+
+#### API Routes
+- ✅ Menu Items API (`/app/api/shops/[shopId]/menu/route.ts`)
+- ✅ Menu Item Details API (`/app/api/shops/[shopId]/menu/[itemId]/route.ts`)
+- ✅ Loyalty Programs API (`/app/api/shops/[shopId]/loyalty/route.ts`)
+- ✅ Customers API (`/app/api/shops/[shopId]/customers/route.ts`)
+- ✅ User Rewards API (`/app/api/users/rewards/route.ts`)
+- ✅ User Activities API (`/app/api/users/activities/route.ts`)
+
+#### React Hooks
+- ✅ useShop: Fetches shop details by ID or subdomain
+- ✅ useShops: Fetches all shops with pagination
+- ✅ useMenuItems: Fetches and manages menu items with pagination
+- ✅ useMenuItem: Manages individual menu item operations
+- ✅ useLoyaltyPrograms: Fetches loyalty programs (points and stamp cards)
+- ✅ useUserRewards: Fetches user rewards for a specific shop
+- ✅ useUsers: Fetches users with filtering by role and shop
+- ✅ useRewards: Fetches rewards for a specific shop
+- ✅ useRedemptions: Extracts redemption history from user rewards
+- ✅ useDashboardStats: Aggregates statistics from multiple data sources
+
+#### UI Components
+- ✅ LoadingSpinner: Shows loading state with customizable size and text
+- ✅ ErrorAlert: Displays error messages with retry functionality
+- ✅ LoadingState: Wrapper component for handling loading/error/success states
+
+#### Pages
+- ✅ Shop Detail Page (`/app/shops/[shop]/page.tsx`)
+- ✅ Customer Dashboard (`/app/dashboard/page.tsx`)
+- ✅ Super Admin Dashboard (`/app/super-admin/page.tsx`)
+
+### Still Using Mock Data
+
+- ⏳ Transactions API (`/app/api/shops/[shopId]/transactions/route.ts`)
+- ⏳ Staff Management APIs (listing, creation, permissions, invitations)
+- ⏳ Shop Admin Pages (some sections)
 
 ## Contributing
 
